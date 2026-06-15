@@ -392,9 +392,24 @@ async fn handle_connection<S>(
                 }
 
                 let is_close = cmd.get("action").and_then(|v| v.as_str()) == Some("close");
+                if env::var("AGENT_BROWSER_DEBUG").is_ok() {
+                    let action = cmd
+                        .get("action")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("<missing>");
+                    let _ = writeln!(std::io::stderr(), "[daemon] received action: {}", action);
+                }
 
                 let response = {
                     let mut s = state.lock().await;
+                    if env::var("AGENT_BROWSER_DEBUG").is_ok() {
+                        let action = cmd
+                            .get("action")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("<missing>");
+                        let _ =
+                            writeln!(std::io::stderr(), "[daemon] dispatching action: {}", action);
+                    }
                     execute_command(&cmd, &mut s).await
                 };
 

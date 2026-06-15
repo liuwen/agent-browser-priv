@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
@@ -209,6 +210,17 @@ impl CdpClient {
         params: Option<Value>,
         session_id: Option<&str>,
     ) -> Result<Value, String> {
+        self.send_command_with_timeout(method, params, session_id, Duration::from_secs(30))
+            .await
+    }
+
+    pub async fn send_command_with_timeout(
+        &self,
+        method: &str,
+        params: Option<Value>,
+        session_id: Option<&str>,
+        timeout: Duration,
+    ) -> Result<Value, String> {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
 
         let cmd = CdpCommand {
@@ -236,7 +248,7 @@ impl CdpClient {
                 .map_err(|e| format!("Failed to send CDP command: {}", e))?;
         }
 
-        let response = match tokio::time::timeout(std::time::Duration::from_secs(30), rx).await {
+        let response = match tokio::time::timeout(timeout, rx).await {
             Ok(Ok(resp)) => resp,
             Ok(Err(_)) => return Err("CDP response channel closed".to_string()),
             Err(_) => {
@@ -277,10 +289,24 @@ impl CdpClient {
         params: &P,
         session_id: Option<&str>,
     ) -> Result<R, String> {
+        self.send_command_typed_with_timeout(method, params, session_id, Duration::from_secs(30))
+            .await
+    }
+
+    pub async fn send_command_typed_with_timeout<
+        P: serde::Serialize,
+        R: serde::de::DeserializeOwned,
+    >(
+        &self,
+        method: &str,
+        params: &P,
+        session_id: Option<&str>,
+        timeout: Duration,
+    ) -> Result<R, String> {
         let params_value = serde_json::to_value(params)
             .map_err(|e| format!("Failed to serialize params: {}", e))?;
         let result = self
-            .send_command(method, Some(params_value), session_id)
+            .send_command_with_timeout(method, Some(params_value), session_id, timeout)
             .await?;
         serde_json::from_value(result)
             .map_err(|e| format!("Failed to deserialize CDP response for {}: {}", method, e))

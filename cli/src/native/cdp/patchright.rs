@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
@@ -19,13 +19,10 @@ pub struct PatchrightProcess {
 
 impl PatchrightProcess {
     pub fn kill(&mut self) {
-        let _ = self.child.kill();
         #[cfg(unix)]
-        if let Some(pgid) = self.pgid {
-            unsafe {
-                libc::kill(-pgid, libc::SIGKILL);
-            }
-        }
+        kill_child_tree(&mut self.child, self.pgid);
+        #[cfg(not(unix))]
+        kill_child_tree(&mut self.child);
         let _ = self.child.wait();
     }
 
@@ -164,9 +161,9 @@ pub fn launch_patchright(options: &LaunchOptions) -> Result<PatchrightProcess, S
         Ok(url) => url,
         Err(e) => {
             #[cfg(unix)]
-            kill_child_tree(&mut child, pgid);
+            terminate_child_tree(&mut child, pgid);
             #[cfg(not(unix))]
-            kill_child_tree(&mut child);
+            terminate_child_tree(&mut child);
             wait_child_or_kill(&mut child, Duration::from_secs(2));
             let stderr = read_stderr(&mut child);
             cleanup_temp_dir(&temp_user_data_dir);
@@ -224,12 +221,9 @@ fn fetch_json_version(port: u16) -> Result<Option<String>, String> {
         .set_read_timeout(Some(Duration::from_secs(1)))
         .map_err(|e| e.to_string())?;
     stream
-        .write_all(b"GET /json/version HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
+        .write_all(version_request(port).as_bytes())
         .map_err(|e| e.to_string())?;
-    let mut response = String::new();
-    stream
-        .read_to_string(&mut response)
-        .map_err(|e| e.to_string())?;
+    let response = read_http_response(&mut stream)?;
     let Some(body_start) = response.find("\r\n\r\n") else {
         return Ok(None);
     };
@@ -241,12 +235,75 @@ fn fetch_json_version(port: u16) -> Result<Option<String>, String> {
         .map(|s| s.to_string()))
 }
 
+fn version_request(port: u16) -> String {
+    format!(
+        "GET /json/version HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\n\r\n",
+        port
+    )
+}
+
+fn read_http_response(stream: &mut TcpStream) -> Result<String, String> {
+    let mut response = Vec::new();
+    let mut buf = [0_u8; 4096];
+    loop {
+        match stream.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => {
+                response.extend_from_slice(&buf[..n]);
+                if response_has_complete_body(&response) {
+                    break;
+                }
+            }
+            Err(e) if e.kind() == ErrorKind::WouldBlock || e.kind() == ErrorKind::TimedOut => {
+                if response_has_complete_body(&response) {
+                    break;
+                }
+                return Err(e.to_string());
+            }
+            Err(e) => return Err(e.to_string()),
+        }
+    }
+    String::from_utf8(response).map_err(|e| e.to_string())
+}
+
+fn response_has_complete_body(response: &[u8]) -> bool {
+    let Some(header_end) = response.windows(4).position(|w| w == b"\r\n\r\n") else {
+        return false;
+    };
+    let header_text = String::from_utf8_lossy(&response[..header_end]);
+    let Some(content_length) = header_text.lines().find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        if name.eq_ignore_ascii_case("content-length") {
+            value.trim().parse::<usize>().ok()
+        } else {
+            None
+        }
+    }) else {
+        return false;
+    };
+    response.len().saturating_sub(header_end + 4) >= content_length
+}
+
 fn read_stderr(child: &mut Child) -> String {
     let Some(mut stderr) = child.stderr.take() else {
         return "(stderr unavailable)".to_string();
     };
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        let flags = unsafe { libc::fcntl(stderr.as_raw_fd(), libc::F_GETFL) };
+        if flags >= 0 {
+            unsafe {
+                libc::fcntl(stderr.as_raw_fd(), libc::F_SETFL, flags | libc::O_NONBLOCK);
+            }
+        }
+    }
     let mut buf = String::new();
-    let _ = stderr.read_to_string(&mut buf);
+    match stderr.read_to_string(&mut buf) {
+        Ok(_) => {}
+        Err(e) if e.kind() == ErrorKind::WouldBlock => {}
+        Err(_) => {}
+    }
     if buf.trim().is_empty() {
         "(empty)".to_string()
     } else {
@@ -268,18 +325,58 @@ fn wait_child_or_kill(child: &mut Child, timeout: Duration) {
 }
 
 #[cfg(unix)]
-fn kill_child_tree(child: &mut Child, pgid: Option<i32>) {
+fn terminate_child_tree(child: &mut Child, pgid: Option<i32>) {
+    kill_descendants(child.id(), libc::SIGTERM);
+    if let Some(pgid) = pgid {
+        unsafe {
+            libc::kill(-pgid, libc::SIGTERM);
+        }
+    }
+    unsafe {
+        libc::kill(child.id() as i32, libc::SIGTERM);
+    }
+}
+
+#[cfg(not(unix))]
+fn terminate_child_tree(child: &mut Child) {
     let _ = child.kill();
+}
+
+#[cfg(unix)]
+fn kill_child_tree(child: &mut Child, pgid: Option<i32>) {
+    kill_descendants(child.id(), libc::SIGKILL);
     if let Some(pgid) = pgid {
         unsafe {
             libc::kill(-pgid, libc::SIGKILL);
         }
     }
+    let _ = child.kill();
 }
 
 #[cfg(not(unix))]
 fn kill_child_tree(child: &mut Child) {
     let _ = child.kill();
+}
+
+#[cfg(unix)]
+fn kill_descendants(pid: u32, signal: i32) {
+    let output = Command::new("pgrep")
+        .arg("-P")
+        .arg(pid.to_string())
+        .output();
+    let Ok(output) = output else {
+        return;
+    };
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for child_pid in stdout
+        .lines()
+        .filter_map(|line| line.trim().parse::<u32>().ok())
+    {
+        kill_descendants(child_pid, signal);
+        unsafe {
+            libc::kill(child_pid as i32, signal);
+        }
+    }
 }
 
 fn cleanup_temp_dir(dir: &Option<PathBuf>) {
@@ -300,4 +397,27 @@ fn expand_tilde(path: &str) -> String {
         }
     }
     path.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn version_request_includes_port_in_host_header() {
+        let request = version_request(62848);
+        assert!(request.contains("Host: 127.0.0.1:62848\r\n"));
+    }
+
+    #[test]
+    fn response_has_complete_body_uses_content_length() {
+        let response = b"HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\n{\"ready\":true}";
+        assert!(response_has_complete_body(response));
+    }
+
+    #[test]
+    fn response_has_complete_body_rejects_partial_body() {
+        let response = b"HTTP/1.1 200 OK\r\nContent-Length: 13\r\n\r\n{\"ready\"";
+        assert!(!response_has_complete_body(response));
+    }
 }

@@ -3382,6 +3382,29 @@ async fn handle_gettext(cmd: &Value, state: &mut DaemonState) -> Result<Value, S
         .and_then(|v| v.as_str())
         .ok_or("Missing 'selector' parameter")?;
 
+    if selector.eq_ignore_ascii_case("body") {
+        let result: super::cdp::types::EvaluateResult = mgr
+            .client
+            .send_command_typed_with_timeout(
+                "Runtime.evaluate",
+                &super::cdp::types::EvaluateParams {
+                    expression: "(document.body && document.body.innerText) || ''".to_string(),
+                    return_by_value: Some(true),
+                    await_promise: Some(false),
+                },
+                Some(&session_id),
+                tokio::time::Duration::from_secs(5),
+            )
+            .await?;
+        let text = result
+            .result
+            .value
+            .and_then(|v| v.as_str().map(ToString::to_string))
+            .unwrap_or_default();
+        let url = mgr.get_url().await.unwrap_or_default();
+        return Ok(json!({ "text": text, "origin": url }));
+    }
+
     let text = super::element::get_element_text(
         &mgr.client,
         &session_id,
@@ -3675,8 +3698,12 @@ async fn wait_for_selector_in_frame(
     );
     let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_millis(timeout_ms);
     loop {
+        let Some(remaining) = deadline.checked_duration_since(tokio::time::Instant::now()) else {
+            return Err(format!("Wait timed out after {}ms", timeout_ms));
+        };
+        let poll_timeout = remaining.min(tokio::time::Duration::from_secs(2));
         let result = client
-            .send_command(
+            .send_command_with_timeout(
                 "Runtime.callFunctionOn",
                 Some(json!({
                     "objectId": owner_object_id,
@@ -3684,8 +3711,17 @@ async fn wait_for_selector_in_frame(
                     "returnByValue": true,
                 })),
                 Some(session_id),
+                poll_timeout,
             )
-            .await?;
+            .await;
+        let result = match result {
+            Ok(result) => result,
+            Err(err) if err.contains("CDP command timed out") => {
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                continue;
+            }
+            Err(err) => return Err(err),
+        };
         let satisfied = result
             .get("result")
             .and_then(|r| r.get("value"))
@@ -3710,17 +3746,41 @@ async fn poll_until_true(
     let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_millis(timeout_ms);
 
     loop {
+        let Some(remaining) = deadline.checked_duration_since(tokio::time::Instant::now()) else {
+            return Err(format!("Wait timed out after {}ms", timeout_ms));
+        };
+        let poll_timeout = remaining.min(tokio::time::Duration::from_secs(2));
         let result: super::cdp::types::EvaluateResult = client
-            .send_command_typed(
+            .send_command_typed_with_timeout(
                 "Runtime.evaluate",
                 &super::cdp::types::EvaluateParams {
                     expression: expression.to_string(),
                     return_by_value: Some(true),
-                    await_promise: Some(true),
+                    await_promise: Some(false),
                 },
                 Some(session_id),
+                poll_timeout,
             )
-            .await?;
+            .await
+            .or_else(|err| {
+                if err.contains("CDP command timed out") {
+                    Ok(super::cdp::types::EvaluateResult {
+                        result: super::cdp::types::RemoteObject {
+                            object_type: "boolean".to_string(),
+                            subtype: None,
+                            value: Some(json!(false)),
+                            description: None,
+                            object_id: None,
+                            class_name: None,
+                            unserializable_value: None,
+                            preview: None,
+                        },
+                        exception_details: None,
+                    })
+                } else {
+                    Err(err)
+                }
+            })?;
 
         if result
             .result

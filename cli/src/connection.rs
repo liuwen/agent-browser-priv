@@ -799,6 +799,9 @@ pub fn send_command(cmd: Value, session: &str) -> Result<Response, String> {
         match send_command_once(&cmd, session) {
             Ok(response) => return Ok(response),
             Err(e) => {
+                if is_read_timeout_error(&e) {
+                    return Err(format!("{} (daemon may be busy or unresponsive)", e));
+                }
                 if is_transient_error(&e) {
                     last_error = e;
                     continue;
@@ -838,6 +841,14 @@ fn is_transient_error(error: &str) -> bool {
         || has_os_error(error, 10054) // Connection reset by peer (Windows)
 }
 
+fn is_read_timeout_error(error: &str) -> bool {
+    error.starts_with("Failed to read:")
+        && (has_os_error(error, 35)
+            || has_os_error(error, 11)
+            || error.contains("WouldBlock")
+            || error.contains("Resource temporarily unavailable"))
+}
+
 /// True when the error means no daemon is listening on the session socket
 /// (exited or never started), as opposed to a live-but-busy daemon. The
 /// remedy is a respawn through ensure_daemon, not a retry.
@@ -875,9 +886,17 @@ fn read_timeout_for(cmd: &Value) -> Duration {
 }
 
 fn send_command_once(cmd: &Value, session: &str) -> Result<Response, String> {
+    send_command_once_with_timeout(cmd, session, read_timeout_for(cmd))
+}
+
+fn send_command_once_with_timeout(
+    cmd: &Value,
+    session: &str,
+    read_timeout: Duration,
+) -> Result<Response, String> {
     let mut stream = connect(session)?;
 
-    stream.set_read_timeout(Some(read_timeout_for(cmd))).ok();
+    stream.set_read_timeout(Some(read_timeout)).ok();
     stream.set_write_timeout(Some(Duration::from_secs(5))).ok();
 
     let mut json_str = serde_json::to_string(cmd).map_err(|e| e.to_string())?;

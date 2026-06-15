@@ -18,6 +18,10 @@
 
 ### Bug Fixes
 
+- Fixed Patchright CDP readiness detection so `open --wait-until none` no longer hangs while Chrome keeps `/json/version` connections open.
+- Fixed Patchright browser WebSocket URLs by sending the CDP port in the HTTP `Host` header during readiness probing.
+- Added bounded CDP evaluation timeouts for wait/title/body-text diagnostics so challenge pages fail or match on the user-visible timeout instead of blocking behind a renderer call.
+- Stopped retrying daemon socket read timeouts against the same busy daemon, avoiding multi-minute command amplification.
 - Forwarded proxy, proxy-bypass, user-agent, ignore-HTTPS-errors, download path, and color-scheme options into the default Patchright backend.
 - Kept Patchright CDP bound to localhost by filtering user remote-debugging args and appending the managed CDP bind last.
 - Made Patchright launch failure cleanup kill the child process group before bounded stderr collection, reducing orphaned browser and long-hang cases.
@@ -33,6 +37,10 @@
 ### Documentation
 
 - Updated README, docs, and bundled skills to document Patchright's Node.js runtime requirement, backend proxy support, and `--wait-until` usage.
+
+### Diagnostics
+
+- Added `--debug` launch trace lines for Patchright startup, CDP WebSocket connect, and target attachment.
 
 ### Contributors
 
