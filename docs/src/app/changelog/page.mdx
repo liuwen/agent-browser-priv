@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.27.3-priv.7
+
+<p className="text-[#888] text-sm">June 16, 2026</p>
+
+### Bug Fixes
+
+- Fixed Patchright CDP readiness detection so `open --wait-until none` no longer hangs while Chrome keeps `/json/version` connections open.
+- Fixed Patchright browser WebSocket URLs by sending the CDP port in the HTTP `Host` header during readiness probing.
+- Added bounded CDP evaluation timeouts for wait/title/body-text diagnostics so challenge pages fail or match on the user-visible timeout instead of blocking behind a renderer call.
+- Stopped retrying daemon socket read timeouts against the same busy daemon, avoiding multi-minute command amplification.
+
+### Diagnostics
+
+- Added `--debug` launch trace lines for Patchright startup, CDP WebSocket connect, and target attachment.
+
+### Contributors
+
+- @liuwen
+
+---
+
 ## v0.27.3-priv.6
 
 <p className="text-[#888] text-sm">June 15, 2026</p>

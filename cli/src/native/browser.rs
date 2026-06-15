@@ -1,5 +1,6 @@
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -263,6 +264,14 @@ impl WaitUntil {
     }
 }
 
+const QUICK_RUNTIME_EVALUATE_TIMEOUT: Duration = Duration::from_secs(5);
+
+fn debug_launch(message: &str) {
+    if env::var("AGENT_BROWSER_DEBUG").is_ok() {
+        eprintln!("[launch] {}", message);
+    }
+}
+
 pub enum BrowserProcess {
     Chrome(ChromeProcess),
     Lightpanda(LightpandaProcess),
@@ -382,10 +391,12 @@ impl BrowserManager {
                 (url, BrowserProcess::Lightpanda(lp))
             }
             _ if backend == "patchright" => {
+                debug_launch("launching patchright host");
                 let patchright = tokio::task::spawn_blocking(move || launch_patchright(&options))
                     .await
                     .map_err(|e| format!("Patchright launch task failed: {}", e))??;
                 let url = patchright.ws_url.clone();
+                debug_launch(&format!("patchright host ready: {}", url));
                 (url, BrowserProcess::Patchright(patchright))
             }
             _ => {
@@ -400,7 +411,12 @@ impl BrowserManager {
         let manager = if engine == "lightpanda" {
             initialize_lightpanda_manager(ws_url, process).await?
         } else {
-            let client = Arc::new(CdpClient::connect(&ws_url).await?);
+            debug_launch("connecting browser websocket");
+            let client = Arc::new(
+                connect_cdp_with_retry(&ws_url, Duration::from_secs(5), Duration::from_millis(100))
+                    .await?,
+            );
+            debug_launch("browser websocket connected");
             let mut manager = Self {
                 client,
                 browser_process: Some(process),
@@ -413,7 +429,9 @@ impl BrowserManager {
                 visited_origins: HashSet::new(),
                 next_tab_id: 1,
             };
+            debug_launch("discovering targets");
             manager.discover_and_attach_targets().await?;
+            debug_launch("targets attached");
             manager
         };
 
@@ -528,6 +546,7 @@ impl BrowserManager {
     }
 
     async fn discover_and_attach_targets(&mut self) -> Result<(), String> {
+        debug_launch("Target.setDiscoverTargets");
         self.client
             .send_command_typed::<_, Value>(
                 "Target.setDiscoverTargets",
@@ -536,6 +555,7 @@ impl BrowserManager {
             )
             .await?;
 
+        debug_launch("Target.getTargets");
         let result: GetTargetsResult = self
             .client
             .send_command_typed("Target.getTargets", &json!({}), None)
@@ -549,6 +569,7 @@ impl BrowserManager {
 
         if page_targets.is_empty() {
             // Create a new tab
+            debug_launch("Target.createTarget");
             let result: CreateTargetResult = self
                 .client
                 .send_command_typed(
@@ -560,6 +581,7 @@ impl BrowserManager {
                 )
                 .await?;
 
+            debug_launch("Target.attachToTarget");
             let attach_result: AttachToTargetResult = self
                 .client
                 .send_command_typed(
@@ -584,9 +606,11 @@ impl BrowserManager {
                 target_type: "page".to_string(),
             });
             self.active_page_index = 0;
+            debug_launch("enable domains");
             self.enable_domains(&attach_result.session_id).await?;
         } else {
             for target in &page_targets {
+                debug_launch(&format!("Target.attachToTarget {}", target.target_id));
                 let attach_result: AttachToTargetResult = self
                     .client
                     .send_command_typed(
@@ -614,6 +638,7 @@ impl BrowserManager {
 
             self.active_page_index = 0;
             let session_id = self.pages[0].session_id.clone();
+            debug_launch("enable domains");
             self.enable_domains(&session_id).await?;
         }
 
@@ -785,18 +810,25 @@ impl BrowserManager {
     }
 
     pub async fn get_url(&self) -> Result<String, String> {
-        let result = self.evaluate_simple("location.href").await?;
+        let result = self
+            .evaluate_simple_with_timeout("location.href", QUICK_RUNTIME_EVALUATE_TIMEOUT)
+            .await?;
         Ok(result.as_str().unwrap_or("").to_string())
     }
 
     pub async fn get_title(&self) -> Result<String, String> {
-        let result = self.evaluate_simple("document.title").await?;
+        let result = self
+            .evaluate_simple_with_timeout("document.title", QUICK_RUNTIME_EVALUATE_TIMEOUT)
+            .await?;
         Ok(result.as_str().unwrap_or("").to_string())
     }
 
     pub async fn get_content(&self) -> Result<String, String> {
         let result = self
-            .evaluate_simple("document.documentElement.outerHTML")
+            .evaluate_simple_with_timeout(
+                "document.documentElement.outerHTML",
+                QUICK_RUNTIME_EVALUATE_TIMEOUT,
+            )
             .await?;
         Ok(result.as_str().unwrap_or("").to_string())
     }
@@ -831,6 +863,39 @@ impl BrowserManager {
 
     async fn evaluate_simple(&self, expression: &str) -> Result<Value, String> {
         self.evaluate(expression, None).await
+    }
+
+    async fn evaluate_simple_with_timeout(
+        &self,
+        expression: &str,
+        timeout: Duration,
+    ) -> Result<Value, String> {
+        let session_id = self.active_session_id()?.to_string();
+
+        let result: EvaluateResult = self
+            .client
+            .send_command_typed_with_timeout(
+                "Runtime.evaluate",
+                &EvaluateParams {
+                    expression: expression.to_string(),
+                    return_by_value: Some(true),
+                    await_promise: Some(false),
+                },
+                Some(&session_id),
+                timeout,
+            )
+            .await?;
+
+        if let Some(ref details) = result.exception_details {
+            let msg = details
+                .exception
+                .as_ref()
+                .and_then(|e| e.description.as_deref())
+                .unwrap_or(&details.text);
+            return Err(format!("Evaluation error: {}", msg));
+        }
+
+        Ok(result.result.value.unwrap_or(Value::Null))
     }
 
     pub async fn wait_for_lifecycle_external(

@@ -1,8 +1,26 @@
 # agent-browser
 
-## 0.27.3-priv.6
+## 0.27.3-priv.7
 
 <!-- release:start -->
+### Bug Fixes
+
+- Fixed Patchright CDP readiness detection so `open --wait-until none` no longer hangs while Chrome keeps `/json/version` connections open.
+- Fixed Patchright browser WebSocket URLs by sending the CDP port in the HTTP `Host` header during readiness probing.
+- Added bounded CDP evaluation timeouts for wait/title/body-text diagnostics so challenge pages fail or match on the user-visible timeout instead of blocking behind a renderer call.
+- Stopped retrying daemon socket read timeouts against the same busy daemon, avoiding multi-minute command amplification.
+
+### Diagnostics
+
+- Added `--debug` launch trace lines for Patchright startup, CDP WebSocket connect, and target attachment.
+
+### Contributors
+
+- @liuwen
+<!-- release:end -->
+
+## 0.27.3-priv.6
+
 ### Bug Fixes
 
 - Forwarded proxy, proxy-bypass, user-agent, ignore-HTTPS-errors, download path, and color-scheme options into the default Patchright backend.
@@ -21,7 +39,6 @@
 ### Contributors
 
 - @liuwen
-<!-- release:end -->
 
 ## 0.27.3-priv.5
 
