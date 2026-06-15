@@ -1200,6 +1200,7 @@ Global Options:
   --json               Output as JSON
   --session <name>     Use specific session
   --headers <json>     Set HTTP headers (scoped to this origin)
+  --wait-until <state> Navigation wait: none, domcontentloaded, load, networkidle
   --headed             Show browser window
   --enable react-devtools   Inject the React DevTools hook before any page JS
   --init-script <path>      Register a page init script (repeatable)
@@ -1209,6 +1210,7 @@ Examples:
   agent-browser open example.com
   agent-browser open https://github.com
   agent-browser open localhost:3000
+  agent-browser open --wait-until none https://example.com
   agent-browser open api.example.com --headers '{"Authorization": "Bearer token"}'
     # ^ Headers only sent to api.example.com, not other domains
 

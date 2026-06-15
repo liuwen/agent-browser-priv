@@ -265,9 +265,33 @@ fn parse_command_inner(args: &[String], flags: &Flags) -> Result<Value, ParseErr
             // scripts before the first real navigation (see `batch`).
             // `goto` and `navigate` still require a URL since those verbs
             // imply the navigation itself.
-            let first_url = rest.iter().find(|a| !a.starts_with("--"));
-            let url = match first_url {
-                Some(u) => *u,
+            let mut url_arg: Option<&str> = None;
+            let mut wait_until: Option<&str> = None;
+            let mut i = 0;
+            while i < rest.len() {
+                match rest[i] {
+                    "--wait-until" => {
+                        let value = rest.get(i + 1).ok_or_else(|| ParseError::MissingArguments {
+                            context: format!("{} --wait-until", cmd),
+                            usage: "open <url> --wait-until <none|domcontentloaded|load|networkidle>",
+                        })?;
+                        wait_until = Some(value);
+                        i += 2;
+                    }
+                    arg if arg.starts_with("--") => {
+                        i += 1;
+                    }
+                    arg => {
+                        if url_arg.is_none() {
+                            url_arg = Some(arg);
+                        }
+                        i += 1;
+                    }
+                }
+            }
+
+            let url = match url_arg {
+                Some(u) => u,
                 None if cmd == "open" => {
                     return Ok(json!({ "id": id, "action": "launch", "headless": !flags.headed }));
                 }
@@ -294,6 +318,9 @@ fn parse_command_inner(args: &[String], flags: &Flags) -> Result<Value, ParseErr
             let mut nav_cmd = json!({ "id": id, "action": "navigate", "url": url });
             if flags.provider.is_some() {
                 nav_cmd["waitUntil"] = json!("none");
+            }
+            if let Some(wait_until) = wait_until {
+                nav_cmd["waitUntil"] = json!(wait_until);
             }
             if let Some(ref headers_json) = flags.headers {
                 let headers =
@@ -3408,6 +3435,39 @@ mod tests {
         let cmd = parse_command(&args("open example.com"), &default_flags()).unwrap();
         assert_eq!(cmd["action"], "navigate");
         assert_eq!(cmd["url"], "https://example.com");
+    }
+
+    #[test]
+    fn test_navigate_with_wait_until_after_url() {
+        let cmd = parse_command(
+            &args("open https://example.com --wait-until none"),
+            &default_flags(),
+        )
+        .unwrap();
+        assert_eq!(cmd["action"], "navigate");
+        assert_eq!(cmd["url"], "https://example.com");
+        assert_eq!(cmd["waitUntil"], "none");
+    }
+
+    #[test]
+    fn test_navigate_with_wait_until_before_url() {
+        let cmd = parse_command(
+            &args("open --wait-until none https://example.com"),
+            &default_flags(),
+        )
+        .unwrap();
+        assert_eq!(cmd["action"], "navigate");
+        assert_eq!(cmd["url"], "https://example.com");
+        assert_eq!(cmd["waitUntil"], "none");
+    }
+
+    #[test]
+    fn test_navigate_with_wait_until_missing_value() {
+        let result = parse_command(
+            &args("open https://example.com --wait-until"),
+            &default_flags(),
+        );
+        assert!(result.is_err());
     }
 
     #[test]

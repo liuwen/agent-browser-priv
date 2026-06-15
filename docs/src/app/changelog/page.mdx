@@ -13,8 +13,15 @@
 ### Improvements
 
 - Preserved upstream plugin launch-mutator behavior while keeping backend-specific launch hashing and browser launch selection.
+- Added `--wait-until <none|domcontentloaded|load|networkidle>` to `open`, `goto`, and `navigate`, allowing challenge/debug pages to return immediately before bounded DOM/title checks.
 - Kept the release surface focused on Linux x64, Linux ARM64, and macOS ARM64 artifacts.
 - Kept npm trusted publishing and Homebrew tap update support for ad hoc installs and local daily use.
+
+### Bug Fixes
+
+- Made `agent-browser doctor` skip its live launch test when version-mismatched daemons are already active, avoiding long retry hangs and pointing users to `agent-browser close --all`.
+- Made `agent-browser doctor --fix` clean incompatible daemons before running launch checks.
+- Made `agent-browser close --all` force-clean version-mismatched daemons instead of negotiating with incompatible session sockets.
 
 ### Contributors
 

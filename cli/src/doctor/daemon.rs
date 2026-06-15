@@ -4,9 +4,10 @@
 use super::{Check, Status};
 use crate::connection::{walk_daemons, CleanReason};
 
-pub(super) fn check(checks: &mut Vec<Check>) {
+pub(super) fn check(checks: &mut Vec<Check>) -> bool {
     let category = "Daemons";
     let cli_version = env!("CARGO_PKG_VERSION");
+    let mut has_version_mismatch = false;
 
     let inventory = walk_daemons();
 
@@ -34,6 +35,9 @@ pub(super) fn check(checks: &mut Vec<Check>) {
     } else {
         for session in &inventory.sessions {
             let version_match = session.version.as_deref() == Some(cli_version);
+            if !version_match {
+                has_version_mismatch = true;
+            }
             let status = if version_match {
                 Status::Pass
             } else {
@@ -51,7 +55,7 @@ pub(super) fn check(checks: &mut Vec<Check>) {
                 format!("Session {} (pid {}){}", session.name, session.pid, suffix),
             );
             if !version_match {
-                check = check.with_fix(format!("agent-browser --session {} close", session.name));
+                check = check.with_fix("agent-browser close --all");
             }
             checks.push(check);
         }
@@ -67,4 +71,6 @@ pub(super) fn check(checks: &mut Vec<Check>) {
             ));
         }
     }
+
+    has_version_mismatch
 }
