@@ -100,21 +100,26 @@ pub fn run_doctor(opts: DoctorOptions) -> i32 {
 
     environment::check(&mut checks);
     chrome::check(&mut checks, &opts);
-    daemon::check(&mut checks);
+    let mut has_version_mismatch = daemon::check(&mut checks);
     config::check(&mut checks);
     security::check(&mut checks);
     providers::check(&mut checks);
+
+    if opts.fix {
+        fix::run(&mut checks, &mut fixed);
+        has_version_mismatch = false;
+    }
 
     if !opts.offline {
         network::check(&mut checks);
     }
 
     if !opts.quick {
-        launch::check(&mut checks);
-    }
-
-    if opts.fix {
-        fix::run(&mut checks, &mut fixed);
+        if has_version_mismatch {
+            launch::skip_for_version_mismatch(&mut checks);
+        } else {
+            launch::check(&mut checks);
+        }
     }
 
     let summary = summarize(&checks);

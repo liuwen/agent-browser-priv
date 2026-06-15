@@ -161,6 +161,18 @@ pub(super) fn check(checks: &mut Vec<Check>) {
     }
 }
 
+pub(super) fn skip_for_version_mismatch(checks: &mut Vec<Check>) {
+    checks.push(
+        Check::new(
+            "launch.skipped.daemon_version_mismatch",
+            "Launch test",
+            Status::Warn,
+            "Skipped because version-mismatched daemons are active",
+        )
+        .with_fix("agent-browser close --all"),
+    );
+}
+
 fn send_json(cmd: Value, session: &str) -> Result<(), String> {
     match send_command(cmd, session) {
         Ok(resp) => {

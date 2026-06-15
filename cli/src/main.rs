@@ -410,10 +410,16 @@ fn run_close_all(flags: &Flags) {
     // separates out the standalone dashboard. We only want to send `close` to
     // real session daemons; the dashboard has its own `dashboard stop`.
     let inventory = walk_daemons();
-    let sessions: Vec<(String, u32)> = inventory
+    let sessions: Vec<(String, u32, bool)> = inventory
         .sessions
         .iter()
-        .map(|s| (s.name.clone(), s.pid))
+        .map(|s| {
+            (
+                s.name.clone(),
+                s.pid,
+                s.version.as_deref() != Some(env!("CARGO_PKG_VERSION")),
+            )
+        })
         .collect();
 
     if sessions.is_empty() {
@@ -431,7 +437,25 @@ fn run_close_all(flags: &Flags) {
     let mut closed: Vec<String> = Vec::new();
     let mut failed: Vec<(String, String)> = Vec::new();
 
-    for (session, pid) in &sessions {
+    for (session, pid, version_mismatch) in &sessions {
+        if *version_mismatch {
+            #[cfg(unix)]
+            unsafe {
+                libc::kill(*pid as i32, libc::SIGKILL);
+            }
+            #[cfg(windows)]
+            unsafe {
+                let handle = OpenProcess(1, 0, *pid); // PROCESS_TERMINATE = 1
+                if handle != 0 {
+                    windows_sys::Win32::System::Threading::TerminateProcess(handle, 1);
+                    CloseHandle(handle);
+                }
+            }
+            cleanup_stale_files(session);
+            closed.push(session.clone());
+            continue;
+        }
+
         let cmd = json!({ "id": gen_id(), "action": "close" });
         match send_command(cmd, session) {
             Ok(resp) if resp.success => closed.push(session.clone()),

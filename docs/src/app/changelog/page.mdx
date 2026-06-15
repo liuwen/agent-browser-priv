@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.27.3-priv.5
+
+<p className="text-[#888] text-sm">June 15, 2026</p>
+
+### Bug Fixes
+
+- Made `agent-browser doctor` skip its live launch test when version-mismatched daemons are already active, avoiding long retry hangs and pointing users to `agent-browser close --all`.
+- Made `agent-browser doctor --fix` clean incompatible daemons before running launch checks.
+- Made `agent-browser close --all` force-clean version-mismatched daemons instead of negotiating with incompatible session sockets.
+
+### Improvements
+
+- Added `--wait-until <none|domcontentloaded|load|networkidle>` to `open`, `goto`, and `navigate`, allowing challenge/debug pages to return immediately with `--wait-until none` before bounded DOM/title checks.
+
+### Contributors
+
+- @liuwen
+
+---
+
 ## v0.27.3-priv.4
 
 <p className="text-[#888] text-sm">June 15, 2026</p>

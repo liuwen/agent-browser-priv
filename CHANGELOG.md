@@ -1,8 +1,25 @@
 # agent-browser
 
-## 0.27.3-priv.4
+## 0.27.3-priv.5
 
 <!-- release:start -->
+### Bug Fixes
+
+- Made `agent-browser doctor` skip its live launch test when version-mismatched daemons are already active, avoiding long retry hangs and pointing users to `agent-browser close --all`.
+- Made `agent-browser doctor --fix` clean incompatible daemons before running launch checks.
+- Made `agent-browser close --all` force-clean version-mismatched daemons instead of negotiating with incompatible session sockets.
+
+### Improvements
+
+- Added `--wait-until <none|domcontentloaded|load|networkidle>` to `open`, `goto`, and `navigate`, allowing challenge/debug pages to return immediately with `--wait-until none` before bounded DOM/title checks.
+
+### Contributors
+
+- @liuwen
+<!-- release:end -->
+
+## 0.27.3-priv.4
+
 ### New Features
 
 - Made **agent-browser** the primary installed command while keeping `agent-browser-priv` as a compatibility alias for existing scripts.
@@ -19,7 +36,6 @@
 ### Contributors
 
 - @liuwen
-<!-- release:end -->
 
 ## 0.27.3-priv.3
 
