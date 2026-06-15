@@ -38,7 +38,12 @@ function getBinaryName() {
       osKey = 'darwin';
       break;
     case 'linux':
-      osKey = isMusl() ? 'linux-musl' : 'linux';
+      if (isMusl()) {
+        console.error('Error: agent-browser-priv does not publish musl Linux binaries.');
+        console.error('Use a glibc-based Linux environment or build locally with npm run build:native.');
+        process.exit(1);
+      }
+      osKey = 'linux';
       break;
     case 'win32':
       osKey = 'win32';

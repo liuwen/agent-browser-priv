@@ -1,8 +1,20 @@
 # agent-browser
 
-## 0.27.3-priv.2
+## 0.27.3-priv.3
 
 <!-- release:start -->
+### Improvements
+
+- Added the npm `priv` dist-tag to release publishing so prerelease versions can create or update the `agent-browser-priv` package.
+- Removed Linux musl artifacts from future release builds and npm downloads to keep the runtime matrix focused on glibc Linux, macOS ARM64, and Windows x64.
+
+### Contributors
+
+- @liuwen
+<!-- release:end -->
+
+## 0.27.3-priv.2
+
 ### Improvements
 
 - Restored **npm publishing** in the release workflow so `npx agent-browser-priv` can work once npm Trusted Publishing is configured for this repository.
@@ -11,7 +23,6 @@
 ### Contributors
 
 - @liuwen
-<!-- release:end -->
 
 ## 0.27.3-priv.1
 

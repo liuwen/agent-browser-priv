@@ -31,8 +31,14 @@ function isMusl() {
   }
 }
 
+if (platform() === 'linux' && isMusl()) {
+  console.log('agent-browser-priv does not publish musl Linux binaries.');
+  console.log('Use a glibc-based Linux environment or build locally with npm run build:native.');
+  process.exit(0);
+}
+
 // Platform detection
-const osKey = platform() === 'linux' && isMusl() ? 'linux-musl' : platform();
+const osKey = platform();
 // Windows ARM64 falls back to x64 binary (no native ARM64 build available).
 // x64 binaries run via Windows' built-in emulation on ARM64.
 const effectiveArch = platform() === 'win32' && arch() === 'arm64' ? 'x64' : arch();
