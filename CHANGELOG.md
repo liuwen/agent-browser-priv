@@ -1,8 +1,30 @@
 # agent-browser
 
-## 0.27.3-priv.5
+## 0.27.3-priv.6
 
 <!-- release:start -->
+### Bug Fixes
+
+- Forwarded proxy, proxy-bypass, user-agent, ignore-HTTPS-errors, download path, and color-scheme options into the default Patchright backend.
+- Kept Patchright CDP bound to localhost by filtering user remote-debugging args and appending the managed CDP bind last.
+- Made Patchright launch failure cleanup kill the child process group before bounded stderr collection, reducing orphaned browser and long-hang cases.
+- Made `--wait-until none` return without post-navigation title/URL evaluation, so challenge/debug pages do not turn non-blocking navigation into a renderer wait.
+
+### Security
+
+- Pinned the Patchright backend npm install with an exact package version and lockfile, and switched backend install to `npm ci`.
+
+### Documentation
+
+- Updated README, docs, and bundled skills to document Patchright's Node.js runtime requirement, backend proxy support, and `--wait-until` usage.
+
+### Contributors
+
+- @liuwen
+<!-- release:end -->
+
+## 0.27.3-priv.5
+
 ### Bug Fixes
 
 - Made `agent-browser doctor` skip its live launch test when version-mismatched daemons are already active, avoiding long retry hangs and pointing users to `agent-browser close --all`.
@@ -16,7 +38,6 @@
 ### Contributors
 
 - @liuwen
-<!-- release:end -->
 
 ## 0.27.3-priv.4
 

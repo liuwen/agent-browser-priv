@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.27.3-priv.6
+
+<p className="text-[#888] text-sm">June 15, 2026</p>
+
+### Bug Fixes
+
+- Forwarded proxy, proxy-bypass, user-agent, ignore-HTTPS-errors, download path, and color-scheme options into the default Patchright backend.
+- Kept Patchright CDP bound to localhost by filtering user remote-debugging args and appending the managed CDP bind last.
+- Made Patchright launch failure cleanup kill the child process group before bounded stderr collection, reducing orphaned browser and long-hang cases.
+- Made `--wait-until none` return without post-navigation title/URL evaluation, so challenge/debug pages do not turn non-blocking navigation into a renderer wait.
+
+### Security
+
+- Pinned the Patchright backend npm install with an exact package version and lockfile, and switched backend install to `npm ci`.
+
+### Documentation
+
+- Updated README, docs, and bundled skills to document Patchright's Node.js runtime requirement, backend proxy support, and `--wait-until` usage.
+
+### Contributors
+
+- @liuwen
+
+---
+
 ## v0.27.3-priv.5
 
 <p className="text-[#888] text-sm">June 15, 2026</p>

@@ -268,6 +268,10 @@ pub struct DaemonState {
     /// Last viewport settings (width, height, deviceScaleFactor, mobile),
     /// re-applied to new contexts (e.g., recording).
     pub viewport: Option<(i32, i32, f64, bool)>,
+    /// Unit tests can disable auto-launch so dispatch coverage does not start
+    /// an external browser backend.
+    #[cfg(test)]
+    pub disable_auto_launch: bool,
 }
 
 impl DaemonState {
@@ -326,6 +330,8 @@ impl DaemonState {
                 .and_then(|s| s.parse::<u64>().ok())
                 .unwrap_or(25_000),
             viewport: None,
+            #[cfg(test)]
+            disable_auto_launch: false,
         }
     }
 
@@ -1273,6 +1279,14 @@ pub async fn execute_command(cmd: &Value, state: &mut DaemonState) -> Value {
                 state.reset_input_state();
                 state.update_stream_client().await;
             }
+            #[cfg(test)]
+            if state.disable_auto_launch {
+                // Leave `browser` as None so the handler under test returns
+                // its normal no-browser error without starting Chrome/Patchright.
+            } else if let Err(e) = auto_launch(state).await {
+                return error_response(&id, &format!("Auto-launch failed: {}", e));
+            }
+            #[cfg(not(test))]
             if let Err(e) = auto_launch(state).await {
                 return error_response(&id, &format!("Auto-launch failed: {}", e));
             }

@@ -39,6 +39,11 @@ agent-browser --proxy "http://proxy.example.com:8080" --proxy-bypass "localhost,
 
 `AGENT_BROWSER_PROXY` takes precedence over standard proxy variables. The CLI also accepts credentials embedded in the proxy URL and separates them before passing launch options to the daemon.
 
+The default Patchright backend and the built-in Chrome backend both honor
+`--proxy` and `--proxy-bypass`. Patchright receives these settings through its
+persistent-context launch options; Chrome receives them as Chromium launch
+arguments.
+
 ## SOCKS proxy
 
 ```bash
@@ -73,3 +78,5 @@ The response should show the proxy egress address, not the machine's direct netw
 - Prefer environment variables or secret stores for proxy credentials.
 - Do not commit proxy usernames, passwords, or session URLs.
 - HAR exports and network logs may include proxy-authenticated requests.
+- Remote-debugging address and port arguments are reserved by agent-browser and
+  are forced to localhost for the Patchright backend.

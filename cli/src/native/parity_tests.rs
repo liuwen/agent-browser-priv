@@ -42,8 +42,9 @@ impl Drop for TestKeyGuard {
 }
 
 /// All documented action names that should be implemented.
+/// `launch` is intentionally covered by launch/e2e tests because it starts an
+/// external browser backend and should not run in this no-browser dispatch loop.
 const DOCUMENTED_ACTIONS: &[&str] = &[
-    "launch",
     "navigate",
     "url",
     "title",
@@ -377,6 +378,7 @@ fn minimal_command(action: &str, id: &str) -> Value {
 #[tokio::test]
 async fn test_all_documented_actions_are_handled() {
     let mut state = DaemonState::new();
+    state.disable_auto_launch = true;
 
     for (i, action) in DOCUMENTED_ACTIONS.iter().enumerate() {
         let id = format!("parity-{}", i);
