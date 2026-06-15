@@ -69,6 +69,7 @@ pub struct Config {
     pub args: Option<String>,
     pub user_agent: Option<String>,
     pub provider: Option<String>,
+    pub backend: Option<String>,
     pub device: Option<String>,
     pub hide_scrollbars: Option<bool>,
     pub ignore_https_errors: Option<bool>,
@@ -131,6 +132,7 @@ impl Config {
             args: other.args.or(self.args),
             user_agent: other.user_agent.or(self.user_agent),
             provider: other.provider.or(self.provider),
+            backend: other.backend.or(self.backend),
             device: other.device.or(self.device),
             hide_scrollbars: other.hide_scrollbars.or(self.hide_scrollbars),
             ignore_https_errors: other.ignore_https_errors.or(self.ignore_https_errors),
@@ -234,6 +236,7 @@ fn extract_config_path(args: &[String]) -> Option<Option<String>> {
         "--user-agent",
         "-p",
         "--provider",
+        "--backend",
         "--device",
         "--session-name",
         "--color-scheme",
@@ -312,6 +315,7 @@ pub struct Flags {
     pub args: Option<String>,
     pub user_agent: Option<String>,
     pub provider: Option<String>,
+    pub backend: Option<String>,
     pub ignore_https_errors: bool,
     pub allow_file_access: bool,
     pub hide_scrollbars: bool,
@@ -448,6 +452,7 @@ pub fn parse_flags(args: &[String]) -> Flags {
             .ok()
             .or(config.user_agent),
         provider: env::var("AGENT_BROWSER_PROVIDER").ok().or(config.provider),
+        backend: env::var("AGENT_BROWSER_BACKEND").ok().or(config.backend),
         ignore_https_errors: env_var_is_truthy("AGENT_BROWSER_IGNORE_HTTPS_ERRORS")
             || config.ignore_https_errors.unwrap_or(false),
         allow_file_access: env_var_is_truthy("AGENT_BROWSER_ALLOW_FILE_ACCESS")
@@ -669,6 +674,12 @@ pub fn parse_flags(args: &[String]) -> Flags {
             "-p" | "--provider" => {
                 if let Some(p) = args.get(i + 1) {
                     flags.provider = Some(p.clone());
+                    i += 1;
+                }
+            }
+            "--backend" => {
+                if let Some(p) = args.get(i + 1) {
+                    flags.backend = Some(p.clone());
                     i += 1;
                 }
             }
@@ -895,6 +906,7 @@ pub fn clean_args(args: &[String]) -> Vec<String> {
         "--user-agent",
         "-p",
         "--provider",
+        "--backend",
         "--device",
         "--session-name",
         "--color-scheme",
