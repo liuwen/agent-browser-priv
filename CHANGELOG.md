@@ -1,8 +1,25 @@
 # agent-browser
 
-## 0.27.3
+## 0.27.3-priv.1
 
 <!-- release:start -->
+### New Features
+
+- Added **agent-browser-priv** as a fork release lane with renamed package, command, and GitHub release assets.
+- Added **Patchright backend** support via `--backend patchright`, plus `agent-browser-priv install patchright` for Patchright-managed browser artifacts in local, CI, and remote development environments.
+
+### Infrastructure
+
+- Updated **GitHub release artifacts** to use `agent-browser-priv-*` names across macOS, Linux amd64/arm64, Linux musl amd64/arm64, and Windows.
+- Kept **Homebrew-first distribution** by creating GitHub release assets without npm publishing.
+
+### Contributors
+
+- @liuwen
+<!-- release:end -->
+
+## 0.27.3
+
 ### Bug Fixes
 
 - Fixed **Windows ARM64 installs** by falling back to the Windows x64 binary during postinstall, avoiding failed downloads for a native ARM64 artifact that is not published (#1269)
@@ -10,7 +27,6 @@
 ### Contributors
 
 - @EternalRights
-<!-- release:end -->
 
 ## 0.27.2
 
