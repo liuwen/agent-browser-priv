@@ -5,6 +5,7 @@
 ```bash
 agent-browser open                    # Launch browser (no nav); stays on about:blank
 agent-browser open <url>              # Launch + navigate (aliases: goto, navigate)
+agent-browser open --wait-until none <url>  # Send navigation and return immediately
 agent-browser click <sel>             # Click element (--new-tab to open in new tab)
 agent-browser dblclick <sel>          # Double-click
 agent-browser fill <sel> <text>       # Clear and fill
@@ -517,6 +518,7 @@ See [Init Scripts & Extensions](/init-scripts) for launch-time scripts, runtime 
 --profile <path>         # Persistent browser profile directory
 --state <path>           # Load storage state from JSON file
 --headers <json>         # HTTP headers scoped to URL's origin
+--wait-until <state>     # Navigation wait: none, domcontentloaded, load, networkidle
 --executable-path <path> # Custom browser executable
 --extension <path>       # Load browser extension (repeatable)
 --init-script <path>     # Register a page init script before first navigation (repeatable)

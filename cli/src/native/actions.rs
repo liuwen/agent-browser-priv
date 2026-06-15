@@ -286,6 +286,10 @@ pub struct DaemonState {
     active_provider_session: Option<ActiveProviderSession>,
     /// Actions already approved while replaying a confirmed command.
     confirmed_policy_actions: HashSet<String>,
+    /// Unit tests can disable auto-launch so dispatch coverage does not start
+    /// an external browser backend.
+    #[cfg(test)]
+    pub disable_auto_launch: bool,
 }
 
 impl DaemonState {
@@ -347,6 +351,8 @@ impl DaemonState {
             plugin_init_scripts: Vec::new(),
             active_provider_session: None,
             confirmed_policy_actions: HashSet::new(),
+            #[cfg(test)]
+            disable_auto_launch: false,
         }
     }
 
@@ -1473,6 +1479,15 @@ pub async fn execute_command(cmd: &Value, state: &mut DaemonState) -> Value {
             if state.browser.is_some() || state.active_provider_session.is_some() {
                 let _ = close_current_browser(state).await;
             }
+            #[cfg(test)]
+            {
+                if !state.disable_auto_launch {
+                    if let Err(e) = auto_launch(state, plugins_from_command_or_env(cmd)).await {
+                        return error_response(&id, &format!("Auto-launch failed: {}", e));
+                    }
+                }
+            }
+            #[cfg(not(test))]
             if let Err(e) = auto_launch(state, plugins_from_command_or_env(cmd)).await {
                 return error_response(&id, &format!("Auto-launch failed: {}", e));
             }

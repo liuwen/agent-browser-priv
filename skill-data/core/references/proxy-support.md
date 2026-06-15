@@ -1,6 +1,6 @@
 # Proxy Support
 
-Proxy configuration for geo-testing, rate limiting avoidance, and corporate environments.
+Proxy configuration for controlled egress, geo-testing, and corporate environments.
 
 **Related**: [commands.md](commands.md) for global options, [SKILL.md](../SKILL.md) for quick start.
 
@@ -36,6 +36,11 @@ export HTTP_PROXY="http://proxy.example.com:8080"
 export HTTPS_PROXY="http://proxy.example.com:8080"
 agent-browser open https://example.com
 ```
+
+The default Patchright backend and the built-in Chrome backend both honor
+`--proxy` and `--proxy-bypass`. Patchright receives these settings through its
+persistent-context launch options; Chrome receives them as Chromium launch
+arguments.
 
 ## Authenticated Proxy
 
@@ -100,37 +105,6 @@ for proxy in "${PROXIES[@]}"; do
 done
 ```
 
-### Rotating Proxies for Scraping
-
-```bash
-#!/bin/bash
-# Rotate through proxy list to avoid rate limiting
-
-PROXY_LIST=(
-    "http://proxy1.example.com:8080"
-    "http://proxy2.example.com:8080"
-    "http://proxy3.example.com:8080"
-)
-
-URLS=(
-    "https://site.com/page1"
-    "https://site.com/page2"
-    "https://site.com/page3"
-)
-
-for i in "${!URLS[@]}"; do
-    proxy_index=$((i % ${#PROXY_LIST[@]}))
-    export HTTP_PROXY="${PROXY_LIST[$proxy_index]}"
-    export HTTPS_PROXY="${PROXY_LIST[$proxy_index]}"
-
-    agent-browser open "${URLS[$i]}"
-    agent-browser get text body > "output-$i.txt"
-    agent-browser close
-
-    sleep 1  # Polite delay
-done
-```
-
 ### Corporate Network Access
 
 ```bash
@@ -191,4 +165,4 @@ export NO_PROXY="*.cdn.com,*.static.com"  # Direct CDN access
 2. **Set NO_PROXY appropriately** - Avoid routing local traffic through proxy
 3. **Test proxy before automation** - Verify connectivity with simple requests
 4. **Handle proxy failures gracefully** - Implement retry logic for unstable proxies
-5. **Rotate proxies for large scraping jobs** - Distribute load and avoid bans
+5. **Keep challenge pages intact** - If a bot or human-verification page remains, preserve artifacts for human handoff instead of bypassing it

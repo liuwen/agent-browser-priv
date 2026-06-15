@@ -17,6 +17,13 @@ const port = readOption("port");
 const headless = readOption("headless") === "true";
 const executablePath = readOption("executable-path");
 const userAgent = readOption("user-agent");
+const proxy = readOption("proxy");
+const proxyBypass = readOption("proxy-bypass");
+const proxyUsername = readOption("proxy-username");
+const proxyPassword = readOption("proxy-password");
+const ignoreHTTPSErrors = readOption("ignore-https-errors") === "true";
+const downloadsPath = readOption("download-path");
+const colorScheme = readOption("color-scheme");
 const args = readJsonOption("args", []);
 
 if (!profile || !port) {
@@ -24,14 +31,24 @@ if (!profile || !port) {
   process.exit(2);
 }
 
+function isRemoteDebuggingArg(arg) {
+  return arg === "--remote-debugging-address"
+    || arg.startsWith("--remote-debugging-address=")
+    || arg === "--remote-debugging-port"
+    || arg.startsWith("--remote-debugging-port=");
+}
+
+const userArgs = args.filter((arg) => !isRemoteDebuggingArg(arg));
+
 const launchOptions = {
   headless,
   viewport: null,
+  ignoreHTTPSErrors,
   args: [
+    ...userArgs,
+    "--disable-blink-features=AutomationControlled",
     "--remote-debugging-address=127.0.0.1",
     `--remote-debugging-port=${port}`,
-    "--disable-blink-features=AutomationControlled",
-    ...args,
   ],
 };
 
@@ -41,6 +58,21 @@ if (executablePath && existsSync(executablePath)) {
 
 if (userAgent) {
   launchOptions.userAgent = userAgent;
+}
+
+if (proxy) {
+  launchOptions.proxy = { server: proxy };
+  if (proxyBypass) launchOptions.proxy.bypass = proxyBypass;
+  if (proxyUsername) launchOptions.proxy.username = proxyUsername;
+  if (proxyPassword) launchOptions.proxy.password = proxyPassword;
+}
+
+if (downloadsPath) {
+  launchOptions.downloadsPath = downloadsPath;
+}
+
+if (colorScheme) {
+  launchOptions.colorScheme = colorScheme;
 }
 
 let context;

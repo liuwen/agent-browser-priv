@@ -514,10 +514,11 @@ pub fn run_patchright_install(with_deps: bool) {
     }
 
     let package_json = r#"{
+  "name": "patchright",
   "private": true,
   "type": "module",
   "dependencies": {
-    "patchright": "^1.60.2"
+    "patchright": "1.60.2"
   }
 }
 "#;
@@ -529,12 +530,77 @@ pub fn run_patchright_install(with_deps: bool) {
         );
         exit(1);
     }
+    let package_lock = r#"{
+  "name": "patchright",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "dependencies": {
+        "patchright": "1.60.2"
+      }
+    },
+    "node_modules/fsevents": {
+      "version": "2.3.2",
+      "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.2.tgz",
+      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
+      "hasInstallScript": true,
+      "license": "MIT",
+      "optional": true,
+      "os": [
+        "darwin"
+      ],
+      "engines": {
+        "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
+      }
+    },
+    "node_modules/patchright": {
+      "version": "1.60.2",
+      "resolved": "https://registry.npmjs.org/patchright/-/patchright-1.60.2.tgz",
+      "integrity": "sha512-4gkWJllmwVcqrcAxjecy6XFsA2df/VXVPj5t+Ezimwm/LPr2QYY8nzcj2FBAb/3u67wu58EXAPLlIZzuFKbeqA==",
+      "license": "Apache-2.0",
+      "dependencies": {
+        "patchright-core": "1.60.2"
+      },
+      "bin": {
+        "patchright": "cli.js"
+      },
+      "engines": {
+        "node": ">=18"
+      },
+      "optionalDependencies": {
+        "fsevents": "2.3.2"
+      }
+    },
+    "node_modules/patchright-core": {
+      "version": "1.60.2",
+      "resolved": "https://registry.npmjs.org/patchright-core/-/patchright-core-1.60.2.tgz",
+      "integrity": "sha512-AzUYfbXla1/VVvIKJYK+tOQkdx7PwIM5qSnxz7Hnf2CcRdnqnM6n+goPQl3JLlLdeLj0WA6xlzRn2w/Da7wD4g==",
+      "license": "Apache-2.0",
+      "bin": {
+        "patchright-core": "cli.js"
+      },
+      "engines": {
+        "node": ">=18"
+      }
+    }
+  }
+}
+"#;
+    if let Err(e) = fs::write(dir.join("package-lock.json"), package_lock) {
+        eprintln!(
+            "{} Failed to write Patchright package-lock.json: {}",
+            color::error_indicator(),
+            e
+        );
+        exit(1);
+    }
 
     println!("{}", color::cyan("Installing Patchright backend..."));
     println!("  Location: {}", dir.display());
 
     let install_status = Command::new("npm")
-        .arg("install")
+        .arg("ci")
         .arg("--omit=dev")
         .current_dir(&dir)
         .status();
@@ -543,18 +609,14 @@ pub fn run_patchright_install(with_deps: bool) {
         Ok(status) if status.success() => {}
         Ok(status) => {
             eprintln!(
-                "{} npm install failed with status {}",
+                "{} npm ci failed with status {}",
                 color::error_indicator(),
                 status
             );
             exit(1);
         }
         Err(e) => {
-            eprintln!(
-                "{} Failed to run npm install: {}",
-                color::error_indicator(),
-                e
-            );
+            eprintln!("{} Failed to run npm ci: {}", color::error_indicator(), e);
             exit(1);
         }
     }

@@ -14,6 +14,10 @@ launcher when that lane behaves better for a target. Accessibility-tree
 snapshots with compact `@eN` refs let agents interact with pages in ~200-400
 tokens instead of parsing raw HTML.
 
+The default Patchright backend requires Node.js at runtime; `agent-browser
+install` installs pinned Patchright browser artifacts. The `--backend chrome`
+lane remains the pure Rust local Chrome launcher.
+
 Do not add CAPTCHA solving, Turnstile solving, proxy rotation policy, or
 production stealth defaults. If a challenge remains, classify it and preserve
 artifacts for human handoff.
@@ -26,6 +30,7 @@ web pages — see [When to load another skill](#when-to-load-another-skill).
 
 ```bash
 agent-browser open <url>        # 1. Open a page
+agent-browser open --wait-until none <url>  # Send nav and return immediately
 agent-browser snapshot -i       # 2. See what's on it (interactive elements only)
 agent-browser click @e3         # 3. Act on refs from the snapshot
 agent-browser snapshot -i       # 4. Re-snapshot after any page change
@@ -465,6 +470,7 @@ and [references/authentication.md](references/authentication.md).
 --backend <name>        # local backend: patchright (default), chrome
 --profile <name|path>   # use a Chrome profile (login state survives)
 --headers <json>        # HTTP headers scoped to the URL's origin
+--wait-until <state>    # navigation wait: none, domcontentloaded, load, networkidle
 --proxy <url>           # proxy server
 --state <path>          # load saved auth state from JSON
 --session-name <name>   # auto-save/restore session state by name

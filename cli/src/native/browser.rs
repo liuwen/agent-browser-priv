@@ -712,8 +712,17 @@ impl BrowserManager {
                 .await?;
         }
 
-        let page_url = self.get_url().await.unwrap_or_else(|_| url.to_string());
-        let title = self.get_title().await.unwrap_or_default();
+        let (page_url, title) = if wait_until == WaitUntil::None {
+            // `waitUntil=none` is used for challenge/debug pages where the
+            // renderer may not be ready for Runtime.evaluate yet. Do not turn
+            // a non-waiting navigation into a blocking location/title probe.
+            (url.to_string(), String::new())
+        } else {
+            (
+                self.get_url().await.unwrap_or_else(|_| url.to_string()),
+                self.get_title().await.unwrap_or_default(),
+            )
+        };
 
         // Track visited origin for cross-origin localStorage collection in save_state
         if let Ok(parsed) = url::Url::parse(&page_url) {

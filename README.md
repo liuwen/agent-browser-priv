@@ -76,9 +76,9 @@ Detects your installation method (npm, Homebrew, or Cargo) and runs the appropri
 
 ### Requirements
 
-- **Patchright backend** - Run `agent-browser install` to install Patchright and its browser artifacts for the default local backend.
+- **Patchright backend** - Run `agent-browser install` to install pinned Patchright and its browser artifacts for the default local backend. Requires Node.js and npm for install and runtime launch.
 - **Chrome backend** - Use `agent-browser install chrome` to download Chrome from [Chrome for Testing](https://developer.chrome.com/blog/chrome-for-testing/) for `--backend chrome`. Existing Chrome, Brave, Playwright, and Puppeteer installations are detected automatically.
-- **Node.js 24+ and pnpm 11+** - Only needed when building from source.
+- **Node.js 24+ and pnpm 11+** - pnpm is only needed when building from source; Node.js is also needed by the default Patchright backend.
 - **Rust** - Only needed when building from source (see From Source above).
 
 ## Quick Start
@@ -115,6 +115,7 @@ agent-browser find role button click --name "Submit"
 ```bash
 agent-browser open                    # Launch browser (no navigation); stays on about:blank
 agent-browser open <url>              # Launch + navigate to URL (aliases: goto, navigate)
+agent-browser open --wait-until none <url>  # Return immediately after navigation is sent
 agent-browser click <sel>             # Click element (--new-tab to open in new tab)
 agent-browser dblclick <sel>          # Double-click element
 agent-browser focus <sel>             # Focus element
@@ -940,6 +941,11 @@ Patchright is used only to launch the local Chrome-compatible browser and expose
 CDP on localhost. It does not solve CAPTCHA, Turnstile, or other human
 verification pages; preserve those pages for human handoff.
 
+The default Patchright backend honors `--proxy`, `--proxy-bypass`,
+`--user-agent`, `--ignore-https-errors`, `--download-path`, and custom launch
+args. Remote-debugging address and port args are reserved by agent-browser and
+are forced to localhost.
+
 ## Observability Dashboard
 
 Monitor agent-browser sessions in real time with a local web dashboard showing a live viewport and command activity feed.
@@ -1425,7 +1431,7 @@ Connect to `ws://localhost:9223` to receive frames and send input:
 agent-browser uses a client-daemon architecture:
 
 1. **Rust CLI** - Parses commands, communicates with daemon
-2. **Rust Daemon** - Pure Rust daemon using direct CDP, no Node.js required
+2. **Rust Daemon** - Rust daemon using direct CDP. The default Patchright backend uses a small Node.js host to launch Patchright; `--backend chrome` remains the pure Rust local launcher.
 
 The daemon starts automatically on first command and persists between commands for fast subsequent operations. To auto-shutdown the daemon after a period of inactivity, set `AGENT_BROWSER_IDLE_TIMEOUT_MS` (value in milliseconds). When set, the daemon closes the browser and exits after receiving no commands for the specified duration.
 

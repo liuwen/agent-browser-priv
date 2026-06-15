@@ -25,8 +25,19 @@ agent-browser install chrome
 agent-browser --backend chrome open https://example.com
 ```
 
-Patchright launches a persistent Chromium-compatible browser and exposes CDP on
-localhost. The normal agent-browser commands still run through the Rust CLI.
+Patchright launches a Chromium-compatible browser and exposes CDP on localhost.
+The profile is persistent when `--profile` is provided; otherwise agent-browser
+uses a temporary profile and removes it when the session closes. The normal
+agent-browser commands still run through the Rust CLI.
+
+This backend requires Node.js at runtime because a small host process launches
+Patchright before the Rust daemon attaches over CDP. `agent-browser install`
+uses a pinned Patchright package lock and installs Patchright's browser
+artifacts.
+
+The backend honors proxy, proxy bypass, user agent, ignore-HTTPS-errors,
+download path, color scheme, and custom launch args. Remote-debugging address
+and port args are reserved and forced to localhost.
 
 This backend is for authorized local development and debugging. It does not
 solve CAPTCHA, Turnstile, or other human verification pages. If a challenge

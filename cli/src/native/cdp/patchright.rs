@@ -115,6 +115,27 @@ pub fn launch_patchright(options: &LaunchOptions) -> Result<PatchrightProcess, S
     if let Some(ref ua) = options.user_agent {
         cmd.arg("--user-agent").arg(ua);
     }
+    if let Some(ref proxy) = options.proxy {
+        cmd.arg("--proxy").arg(proxy);
+    }
+    if let Some(ref bypass) = options.proxy_bypass {
+        cmd.arg("--proxy-bypass").arg(bypass);
+    }
+    if let Some(ref username) = options.proxy_username {
+        cmd.arg("--proxy-username").arg(username);
+    }
+    if let Some(ref password) = options.proxy_password {
+        cmd.arg("--proxy-password").arg(password);
+    }
+    if options.ignore_https_errors {
+        cmd.arg("--ignore-https-errors").arg("true");
+    }
+    if let Some(ref download_path) = options.download_path {
+        cmd.arg("--download-path").arg(download_path);
+    }
+    if let Some(ref color_scheme) = options.color_scheme {
+        cmd.arg("--color-scheme").arg(color_scheme);
+    }
 
     #[cfg(unix)]
     {
@@ -135,19 +156,23 @@ pub fn launch_patchright(options: &LaunchOptions) -> Result<PatchrightProcess, S
         )
     })?;
 
+    #[cfg(unix)]
+    let pgid = Some(child.id() as i32);
+
     let deadline = Instant::now() + Duration::from_secs(45);
     let ws_url = match wait_for_cdp_version(port, deadline) {
         Ok(url) => url,
         Err(e) => {
-            let _ = child.kill();
+            #[cfg(unix)]
+            kill_child_tree(&mut child, pgid);
+            #[cfg(not(unix))]
+            kill_child_tree(&mut child);
+            wait_child_or_kill(&mut child, Duration::from_secs(2));
             let stderr = read_stderr(&mut child);
             cleanup_temp_dir(&temp_user_data_dir);
             return Err(format!("{}\nPatchright host stderr:\n{}", e, stderr));
         }
     };
-
-    #[cfg(unix)]
-    let pgid = Some(child.id() as i32);
 
     Ok(PatchrightProcess {
         child,
@@ -227,6 +252,34 @@ fn read_stderr(child: &mut Child) -> String {
     } else {
         buf
     }
+}
+
+fn wait_child_or_kill(child: &mut Child, timeout: Duration) {
+    let start = Instant::now();
+    while start.elapsed() < timeout {
+        match child.try_wait() {
+            Ok(Some(_)) => return,
+            Ok(None) => std::thread::sleep(Duration::from_millis(50)),
+            Err(_) => return,
+        }
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+#[cfg(unix)]
+fn kill_child_tree(child: &mut Child, pgid: Option<i32>) {
+    let _ = child.kill();
+    if let Some(pgid) = pgid {
+        unsafe {
+            libc::kill(-pgid, libc::SIGKILL);
+        }
+    }
+}
+
+#[cfg(not(unix))]
+fn kill_child_tree(child: &mut Child) {
+    let _ = child.kill();
 }
 
 fn cleanup_temp_dir(dir: &Option<PathBuf>) {

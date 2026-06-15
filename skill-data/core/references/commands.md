@@ -9,6 +9,7 @@ agent-browser open            # Launch browser (no navigation); stays on about:b
                               # Pair with `network route`, `cookies set --curl`, or
                               # `addinitscript` to stage state before the first navigation.
 agent-browser open <url>      # Launch + navigate (aliases: goto, navigate)
+agent-browser open --wait-until none <url>  # Send navigation and return immediately
                               # Supports: https://, http://, file://, about:, data://
                               # Auto-prepends https:// if no protocol given
 agent-browser back            # Go back
@@ -390,9 +391,11 @@ agent-browser --session <name> ...    # Isolated browser session
 agent-browser --json ...              # JSON output for parsing
 agent-browser --headed ...            # Show browser window (not headless)
 agent-browser --cdp <port> ...        # Connect via Chrome DevTools Protocol
+agent-browser --backend <name> ...    # Local backend: patchright (default), chrome
 agent-browser -p <provider> ...       # Browser provider or configured provider plugin
 agent-browser --proxy <url> ...       # Use proxy server
 agent-browser --proxy-bypass <hosts>  # Hosts to bypass proxy
+agent-browser --wait-until <state>    # Navigation wait: none, domcontentloaded, load, networkidle
 agent-browser --headers <json> ...    # HTTP headers scoped to URL's origin
 agent-browser --executable-path <p>   # Custom browser executable
 agent-browser --extension <path> ...  # Load browser extension (repeatable)
