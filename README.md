@@ -1262,7 +1262,6 @@ The daemon starts automatically on first command and persists between commands f
 | Platform    | Binary      |
 | ----------- | ----------- |
 | macOS ARM64 | Native Rust |
-| macOS x64   | Native Rust |
 | Linux ARM64 | Native Rust |
 | Linux x64   | Native Rust |
 | Windows x64 | Native Rust |

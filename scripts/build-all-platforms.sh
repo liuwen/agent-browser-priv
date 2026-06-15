@@ -66,9 +66,6 @@ build_target "aarch64-unknown-linux-gnu" "aarch64-unknown-linux-gnu.2.28" "agent
 # Windows x64
 build_target "x86_64-pc-windows-gnu" "x86_64-pc-windows-gnu" "agent-browser-priv-win32-x64.exe"
 
-# macOS x64 (via zig for cross-compilation)
-build_target "x86_64-apple-darwin" "x86_64-apple-darwin" "agent-browser-priv-darwin-x64"
-
 # macOS ARM64 (via zig for cross-compilation)
 build_target "aarch64-apple-darwin" "aarch64-apple-darwin" "agent-browser-priv-darwin-arm64"
 

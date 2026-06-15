@@ -1,8 +1,20 @@
 # agent-browser
 
-## 0.27.3-priv.1
+## 0.27.3-priv.2
 
 <!-- release:start -->
+### Improvements
+
+- Restored **npm publishing** in the release workflow so `npx agent-browser-priv` can work once npm Trusted Publishing is configured for this repository.
+- Removed **macOS x64 release artifacts** from the Rust binary matrix to reduce release time and focus on macOS ARM64 for local daily use.
+
+### Contributors
+
+- @liuwen
+<!-- release:end -->
+
+## 0.27.3-priv.1
+
 ### New Features
 
 - Added **agent-browser-priv** as a fork release lane with renamed package, command, and GitHub release assets.
@@ -16,7 +28,6 @@
 ### Contributors
 
 - @liuwen
-<!-- release:end -->
 
 ## 0.27.3
 
