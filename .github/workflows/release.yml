@@ -265,7 +265,7 @@ jobs:
           echo "All 4 platform binaries present and valid"
 
       - name: Publish to npm
-        run: npm publish --tag priv --provenance --access public
+        run: npm publish --tag latest --provenance --access public
 
   github-release:
     name: Create GitHub Release

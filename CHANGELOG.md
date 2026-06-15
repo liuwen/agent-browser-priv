@@ -1,8 +1,28 @@
 # agent-browser
 
-## 0.27.3-priv.3
+## 0.27.3-priv.4
 
 <!-- release:start -->
+### New Features
+
+- Made **agent-browser** the primary installed command while keeping `agent-browser-priv` as a compatibility alias for existing scripts.
+- Made **Patchright** the default local Chrome-compatible backend for this fork. Use `--backend chrome` or `AGENT_BROWSER_BACKEND=chrome` to force the built-in Chrome CDP launcher.
+
+### Improvements
+
+- Changed bare `agent-browser install` to prepare the default Patchright backend. Use `agent-browser install chrome` for Chrome for Testing.
+- Published the npm package on the standard dist-tag so `npm install -g agent-browser-priv` and `npx agent-browser-priv` work without custom tag arguments.
+- Updated `agent-browser doctor` and `agent-browser doctor --fix` to check the selected local backend, install Patchright by default, and reserve Chrome repair for `--backend chrome`.
+- Updated Patchright launches to use installed Patchright browser artifacts by default, with `--executable-path` still available for system Chrome.
+- Updated `agent-browser upgrade` to stay on this fork's npm package, Homebrew tap formula, and GitHub Cargo source.
+
+### Contributors
+
+- @liuwen
+<!-- release:end -->
+
+## 0.27.3-priv.3
+
 ### Improvements
 
 - Added the npm `priv` dist-tag to release publishing so prerelease versions can create or update the `agent-browser-priv` package.
@@ -11,7 +31,6 @@
 ### Contributors
 
 - @liuwen
-<!-- release:end -->
 
 ## 0.27.3-priv.2
 
