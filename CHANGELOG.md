@@ -1,8 +1,21 @@
 # agent-browser
 
-## 0.27.3-priv.7
+## 0.27.3-priv.8
 
 <!-- release:start -->
+### Infrastructure
+
+- Fixed CI install parsing for `agent-browser install --with-deps`, made timeout-sensitive tests deterministic, and bounded long-running CI jobs.
+- Temporarily disabled Windows CI, release, and npm binary lanes while keeping restore placeholders; active artifacts are Linux x64, Linux ARM64, and macOS ARM64.
+- Added a release-gated Homebrew tap updater that generates formula checksums from published GitHub release assets and skips cleanly when tap credentials are not configured.
+
+### Contributors
+
+- @liuwen
+<!-- release:end -->
+
+## 0.27.3-priv.7
+
 ### Bug Fixes
 
 - Fixed Patchright CDP readiness detection so `open --wait-until none` no longer hangs while Chrome keeps `/json/version` connections open.
@@ -17,7 +30,6 @@
 ### Contributors
 
 - @liuwen
-<!-- release:end -->
 
 ## 0.27.3-priv.6
 

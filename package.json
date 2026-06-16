@@ -1,6 +1,6 @@
 {
   "name": "agent-browser-priv",
-  "version": "0.27.3-priv.7",
+  "version": "0.27.3-priv.8",
   "description": "Browser automation CLI for AI agents",
   "type": "module",
   "packageManager": "pnpm@11.1.3",
@@ -24,8 +24,8 @@
     "build:native": "pnpm run version:sync && cargo build --release --manifest-path cli/Cargo.toml && node scripts/copy-native.js",
     "build:linux": "pnpm run version:sync && docker compose -f docker/docker-compose.yml run --rm build-linux",
     "build:macos": "pnpm run version:sync && cargo build --release --manifest-path cli/Cargo.toml --target aarch64-apple-darwin && cp cli/target/aarch64-apple-darwin/release/agent-browser bin/agent-browser-priv-darwin-arm64",
-    "build:windows": "pnpm run version:sync && docker compose -f docker/docker-compose.yml run --rm build-windows",
-    "build:all-platforms": "pnpm run version:sync && (pnpm run build:linux & pnpm run build:windows & wait) && pnpm run build:macos",
+    "build:windows": "echo \"Windows builds are temporarily disabled\" && exit 0",
+    "build:all-platforms": "pnpm run version:sync && pnpm run build:linux && pnpm run build:macos",
     "build:docker": "docker build --platform linux/amd64 -t agent-browser-builder -f docker/Dockerfile.build .",
     "release": "pnpm run version:sync && pnpm run build:all-platforms",
     "postinstall": "node scripts/postinstall.js",
