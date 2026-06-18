@@ -7,7 +7,7 @@ use std::process::{exit, Command, Stdio};
 const LAST_KNOWN_GOOD_URL: &str =
     "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json";
 
-pub const PATCHRIGHT_VERSION: &str = "1.60.2";
+pub const PATCHRIGHT_VERSION: &str = "1.61.0";
 
 pub fn get_browsers_dir() -> PathBuf {
     dirs::home_dir()
@@ -520,7 +520,7 @@ pub fn run_patchright_install(with_deps: bool) {
   "private": true,
   "type": "module",
   "dependencies": {
-    "patchright": "1.60.2"
+    "patchright": "1.61.0"
   }
 }
 "#;
@@ -539,7 +539,7 @@ pub fn run_patchright_install(with_deps: bool) {
   "packages": {
     "": {
       "dependencies": {
-        "patchright": "1.60.2"
+        "patchright": "1.61.0"
       }
     },
     "node_modules/fsevents": {
@@ -557,12 +557,12 @@ pub fn run_patchright_install(with_deps: bool) {
       }
     },
     "node_modules/patchright": {
-      "version": "1.60.2",
-      "resolved": "https://registry.npmjs.org/patchright/-/patchright-1.60.2.tgz",
-      "integrity": "sha512-4gkWJllmwVcqrcAxjecy6XFsA2df/VXVPj5t+Ezimwm/LPr2QYY8nzcj2FBAb/3u67wu58EXAPLlIZzuFKbeqA==",
+      "version": "1.61.0",
+      "resolved": "https://registry.npmjs.org/patchright/-/patchright-1.61.0.tgz",
+      "integrity": "sha512-R2EYP5QnXNIDPVlrTF+vy30fg8cgwYtNhHr9WAaEX20Up19biAfKy1UqmrNiKZKim22OV4fIavfTjiXPU8CKSQ==",
       "license": "Apache-2.0",
       "dependencies": {
-        "patchright-core": "1.60.2"
+        "patchright-core": "1.61.0"
       },
       "bin": {
         "patchright": "cli.js"
@@ -575,9 +575,9 @@ pub fn run_patchright_install(with_deps: bool) {
       }
     },
     "node_modules/patchright-core": {
-      "version": "1.60.2",
-      "resolved": "https://registry.npmjs.org/patchright-core/-/patchright-core-1.60.2.tgz",
-      "integrity": "sha512-AzUYfbXla1/VVvIKJYK+tOQkdx7PwIM5qSnxz7Hnf2CcRdnqnM6n+goPQl3JLlLdeLj0WA6xlzRn2w/Da7wD4g==",
+      "version": "1.61.0",
+      "resolved": "https://registry.npmjs.org/patchright-core/-/patchright-core-1.61.0.tgz",
+      "integrity": "sha512-XataPFEwgufNBgIhBMDjrKVXHyrAcW19HlUc//4yBClKzrxgKgcwAGNbg0q1Dn0QEgtgxtAjKRtWsDgqCclI+A==",
       "license": "Apache-2.0",
       "bin": {
         "patchright-core": "cli.js"

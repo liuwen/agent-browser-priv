@@ -1,8 +1,30 @@
 # agent-browser
 
-## 0.28.0-priv.1
+## 0.28.0-priv.2
 
 <!-- release:start -->
+### Improvements
+
+- Updated the default Patchright backend pin from 1.60.2 to 1.61.0.
+- Added `agent-browser doctor` reporting for the installed Patchright version, the release pin, and npm latest when network checks are enabled.
+
+### Infrastructure
+
+- Added runtime update tracking in `priv/version-tracking.json`, plus scripts to check upstream `agent-browser` and Patchright freshness.
+- Added a scheduled/manual runtime update workflow that can generate Patchright bump branches from GitHub Actions.
+- Hardened the workflow to fetch existing bump branches before force-with-lease pushes and to leave a green run with a manual PR link when GitHub Actions cannot create pull requests.
+
+### Documentation
+
+- Documented Patchright release pinning, doctor-based freshness checks, and the fork maintenance flow.
+
+### Contributors
+
+- @liuwen
+<!-- release:end -->
+
+## 0.28.0-priv.1
+
 ### New Features
 
 - Rebased the fork onto upstream `agent-browser` 0.28.0, including the MCP server and plugin system.
@@ -51,7 +73,6 @@
 ### Contributors
 
 - @liuwen
-<!-- release:end -->
 
 ## 0.28.0
 
@@ -67,7 +88,6 @@
 ### Contributors
 
 - @ctate
-<!-- release:end -->
 
 ## 0.27.3
 
