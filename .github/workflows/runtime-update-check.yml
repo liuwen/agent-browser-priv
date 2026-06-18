@@ -110,10 +110,15 @@ jobs:
           branch="codex/update-patchright-${TARGET}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "$branch:refs/remotes/origin/$branch" || true
           git checkout -B "$branch"
           git add cli/src/install.rs priv/version-tracking.json
           git commit -m "Update Patchright backend to ${TARGET}"
-          git push --force-with-lease origin "$branch"
+          if git rev-parse --verify "refs/remotes/origin/$branch" >/dev/null 2>&1; then
+            git push --force-with-lease="refs/heads/$branch:refs/remotes/origin/$branch" origin "$branch"
+          else
+            git push --force-with-lease origin "$branch"
+          fi
 
           cat > pr-body.md <<EOF
           Updates the default Patchright backend pin to ${TARGET}.
