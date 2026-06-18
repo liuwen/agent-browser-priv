@@ -73,6 +73,7 @@ jobs:
     needs: check-release
     if: needs.check-release.outputs.should_release == 'true' || needs.check-release.outputs.needs_github_release == 'true'
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -134,8 +135,15 @@ jobs:
       - name: Install cross-compilation tools (Linux)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-x86-64-linux-gnu
+          for attempt in 1 2 3; do
+            echo "apt setup attempt ${attempt}/3"
+            if timeout 300s sudo apt-get update && \
+               timeout 300s sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu gcc-x86-64-linux-gnu; then
+              exit 0
+            fi
+            sleep $((attempt * 10))
+          done
+          exit 1
 
       - name: Install cargo-zigbuild
         if: matrix.use_zigbuild
