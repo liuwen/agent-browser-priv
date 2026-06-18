@@ -37,6 +37,15 @@ Patchright can usually be bumped mechanically, but it still needs a normal
 CI, add the normal version and changelog changes, merge to `main`, and let the
 release workflow publish the binaries, npm package, and Homebrew formula.
 
+Patchright-only bump gates are intentionally narrow:
+
+- `Patchright Backend Smoke` installs the pinned backend, runs `doctor`, opens
+  `https://example.com` through `--backend patchright`, reads the title, and
+  captures a snapshot.
+- `Version Sync Check` and the normal Rust CI must pass.
+- Full native e2e stays as a release/main-branch regression gate. It is not the
+  primary signal for a Patchright-only version bump.
+
 Upstream `agent-browser` updates are not mechanical. Start from the upstream
 tag, replay this fork's small patch stack, update
 `agent_browser_upstream_tag`, and release only if the conflicts stay localized.

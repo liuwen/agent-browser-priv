@@ -2236,12 +2236,14 @@ async fn e2e_state_management() {
 }
 
 // ---------------------------------------------------------------------------
-// Cross-domain state save (issue #1060)
+// Cross-origin state save (issue #1060)
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
 #[ignore]
-async fn e2e_save_state_cross_domain() {
+async fn e2e_save_state_cross_origin() {
+    let (server_a, _ha) = start_echo_server().await;
+    let (server_b, _hb) = start_echo_server().await;
     let mut state = DaemonState::new();
 
     // Launch
@@ -2252,9 +2254,9 @@ async fn e2e_save_state_cross_domain() {
     .await;
     assert_success(&resp);
 
-    // Navigate to domain A and set cookie + localStorage
+    // Navigate to origin A and set cookie + localStorage
     let resp = execute_command(
-        &json!({ "id": "2", "action": "navigate", "url": "https://httpbin.org/html" }),
+        &json!({ "id": "2", "action": "navigate", "url": format!("{}/domain-a", server_a) }),
         &mut state,
     )
     .await;
@@ -2263,7 +2265,7 @@ async fn e2e_save_state_cross_domain() {
     let resp = execute_command(
         &json!({
             "id": "3", "action": "cookies_set",
-            "name": "domainA_cookie", "value": "from_httpbin"
+            "name": "domainA_cookie", "value": "from_origin_a"
         }),
         &mut state,
     )
@@ -2280,9 +2282,9 @@ async fn e2e_save_state_cross_domain() {
     .await;
     assert_success(&resp);
 
-    // Navigate to domain B and set cookie + localStorage
+    // Navigate to origin B and set cookie + localStorage
     let resp = execute_command(
-        &json!({ "id": "5", "action": "navigate", "url": "https://example.com" }),
+        &json!({ "id": "5", "action": "navigate", "url": format!("{}/domain-b", server_b) }),
         &mut state,
     )
     .await;
@@ -2291,7 +2293,7 @@ async fn e2e_save_state_cross_domain() {
     let resp = execute_command(
         &json!({
             "id": "6", "action": "cookies_set",
-            "name": "domainB_cookie", "value": "from_example"
+            "name": "domainB_cookie", "value": "from_origin_b"
         }),
         &mut state,
     )
@@ -2308,9 +2310,9 @@ async fn e2e_save_state_cross_domain() {
     .await;
     assert_success(&resp);
 
-    // Save state (currently on example.com)
+    // Save state while on origin B.
     let tmp_state = std::env::temp_dir()
-        .join("agent-browser-e2e-cross-domain-state.json")
+        .join("agent-browser-e2e-cross-origin-state.json")
         .to_string_lossy()
         .to_string();
     let resp = execute_command(
@@ -2324,44 +2326,44 @@ async fn e2e_save_state_cross_domain() {
     let saved = std::fs::read_to_string(&tmp_state).expect("State file should exist");
     let state_data: serde_json::Value = serde_json::from_str(&saved).unwrap();
 
-    // Verify BOTH domain cookies are present
+    // Verify cookies set on both origins are present.
     let cookies = state_data["cookies"].as_array().unwrap();
     let has_domain_a = cookies.iter().any(|c| c["name"] == "domainA_cookie");
     let has_domain_b = cookies.iter().any(|c| c["name"] == "domainB_cookie");
     assert!(
         has_domain_a,
-        "Should include cross-domain cookie from httpbin.org: {:?}",
+        "Should include cookie set on origin A: {:?}",
         cookies
     );
     assert!(
         has_domain_b,
-        "Should include cookie from example.com: {:?}",
+        "Should include cookie set on origin B: {:?}",
         cookies
     );
 
     // Verify BOTH origins' localStorage are present
     let origins = state_data["origins"].as_array().unwrap();
     let has_origin_a = origins.iter().any(|o| {
-        o["origin"].as_str().is_some_and(|s| s.contains("httpbin"))
+        o["origin"].as_str() == Some(server_a.as_str())
             && o["localStorage"]
                 .as_array()
                 .is_some_and(|ls| ls.iter().any(|e| e["name"] == "domainA_key"))
     });
     let has_origin_b = origins.iter().any(|o| {
-        o["origin"].as_str().is_some_and(|s| s.contains("example"))
+        o["origin"].as_str() == Some(server_b.as_str())
             && o["localStorage"]
                 .as_array()
                 .is_some_and(|ls| ls.iter().any(|e| e["name"] == "domainB_key"))
     });
     assert!(
         has_origin_a,
-        "Should include localStorage from httpbin.org origin: {:?}",
-        origins
+        "Should include localStorage from origin A {}: {:?}",
+        server_a, origins
     );
     assert!(
         has_origin_b,
-        "Should include localStorage from example.com origin: {:?}",
-        origins
+        "Should include localStorage from origin B {}: {:?}",
+        server_b, origins
     );
 
     // Clean up

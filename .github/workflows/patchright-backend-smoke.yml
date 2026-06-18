@@ -1,0 +1,68 @@
+name: Patchright Backend Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - cli/src/install.rs
+      - cli/src/native/cdp/patchright.rs
+      - cli/src/doctor/chrome.rs
+      - priv/version-tracking.json
+      - scripts/check-runtime-updates.mjs
+      - scripts/update-patchright-version.mjs
+      - .github/workflows/patchright-backend-smoke.yml
+  push:
+    branches: [main]
+    paths:
+      - cli/src/install.rs
+      - cli/src/native/cdp/patchright.rs
+      - cli/src/doctor/chrome.rs
+      - priv/version-tracking.json
+      - scripts/check-runtime-updates.mjs
+      - scripts/update-patchright-version.mjs
+      - .github/workflows/patchright-backend-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: patchright-backend-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Patchright install and launch
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2.9.1
+        with:
+          workspaces: cli
+
+      - name: Build CLI
+        run: cargo build --profile ci --manifest-path cli/Cargo.toml
+
+      - name: Install Patchright backend
+        run: ./cli/target/ci/agent-browser install patchright --with-deps
+
+      - name: Smoke Patchright backend
+        run: |
+          set -euo pipefail
+          AB=./cli/target/ci/agent-browser
+          SESSION=patchright-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}
+          trap '"$AB" --session "$SESSION" close || true' EXIT
+
+          "$AB" doctor --offline --quick
+          timeout 90s "$AB" --session "$SESSION" --backend patchright open --wait-until domcontentloaded https://example.com
+          timeout 30s "$AB" --session "$SESSION" get title | tee /tmp/agent-browser-title.txt
+          grep -q "Example Domain" /tmp/agent-browser-title.txt
+          timeout 30s "$AB" --session "$SESSION" snapshot -i > /tmp/agent-browser-snapshot.txt
+          grep -q "Example Domain" /tmp/agent-browser-snapshot.txt
