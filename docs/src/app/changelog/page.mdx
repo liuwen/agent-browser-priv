@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.28.0-priv.2
+
+<p className="text-[#888] text-sm">June 18, 2026</p>
+
+### Improvements
+
+- Updated the default Patchright backend pin from 1.60.2 to 1.61.0.
+- Added `agent-browser doctor` reporting for installed Patchright version, release pin, and npm latest when network checks are enabled.
+
+### Infrastructure
+
+- Added runtime update tracking in `priv/version-tracking.json`, plus scripts to check upstream `agent-browser` and Patchright freshness.
+- Added a scheduled/manual runtime update workflow that can generate Patchright bump branches from GitHub Actions.
+- Hardened the workflow to fetch existing bump branches before force-with-lease pushes and to leave a green run with a manual PR link when GitHub Actions cannot create pull requests.
+
+### Documentation
+
+- Documented Patchright release pinning, doctor-based freshness checks, and the fork maintenance flow.
+
+### Contributors
+
+- @liuwen
+
+---
+
 ## v0.28.0-priv.1
 
 <p className="text-[#888] text-sm">June 18, 2026</p>
