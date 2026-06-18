@@ -1,10 +1,15 @@
 //! Check the selected local browser backend plus optional Chrome installs.
 
 use std::env;
+use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use super::helpers::which_exists;
 use super::{Check, DoctorOptions, Status};
+use serde_json::Value;
+
+const PATCHRIGHT_LATEST_URL: &str = "https://registry.npmjs.org/patchright/latest";
 
 pub(super) fn check(checks: &mut Vec<Check>, opts: &DoctorOptions) {
     let engine = opts.engine.as_deref().unwrap_or("chrome");
@@ -14,7 +19,7 @@ pub(super) fn check(checks: &mut Vec<Check>, opts: &DoctorOptions) {
         "chrome"
     });
 
-    check_selected_backend(checks, engine, backend);
+    check_selected_backend(checks, opts, engine, backend);
 
     let category = "Chrome";
 
@@ -129,7 +134,12 @@ pub(super) fn check(checks: &mut Vec<Check>, opts: &DoctorOptions) {
     }
 }
 
-fn check_selected_backend(checks: &mut Vec<Check>, engine: &str, backend: &str) {
+fn check_selected_backend(
+    checks: &mut Vec<Check>,
+    opts: &DoctorOptions,
+    engine: &str,
+    backend: &str,
+) {
     if engine != "chrome" {
         return;
     }
@@ -146,6 +156,7 @@ fn check_selected_backend(checks: &mut Vec<Check>, engine: &str, backend: &str) 
                     Status::Pass,
                     format!("Patchright backend installed at {}", root.display()),
                 ));
+                check_patchright_versions(checks, category, &root, opts.offline);
             } else {
                 checks.push(
                     Check::new(
@@ -176,6 +187,139 @@ fn check_selected_backend(checks: &mut Vec<Check>, engine: &str, backend: &str) 
     }
 }
 
+fn check_patchright_versions(
+    checks: &mut Vec<Check>,
+    category: &'static str,
+    backend_root: &Path,
+    offline: bool,
+) {
+    let pinned = crate::install::PATCHRIGHT_VERSION;
+
+    match installed_patchright_version(backend_root) {
+        Some(installed) if installed == pinned => {
+            checks.push(Check::new(
+                "backend.patchright_installed_version",
+                category,
+                Status::Pass,
+                format!(
+                    "Patchright backend version {} matches release pin",
+                    installed
+                ),
+            ));
+        }
+        Some(installed) => {
+            checks.push(
+                Check::new(
+                    "backend.patchright_installed_version",
+                    category,
+                    Status::Warn,
+                    format!(
+                        "Patchright backend version {} differs from release pin {}",
+                        installed, pinned
+                    ),
+                )
+                .with_fix("agent-browser install"),
+            );
+        }
+        None => {
+            checks.push(Check::new(
+                "backend.patchright_installed_version",
+                category,
+                Status::Info,
+                "Patchright backend version unknown",
+            ));
+        }
+    }
+
+    if offline {
+        checks.push(Check::new(
+            "backend.patchright_latest_version",
+            category,
+            Status::Info,
+            "Patchright latest-version check skipped (--offline)",
+        ));
+        return;
+    }
+
+    match fetch_latest_patchright_version() {
+        Ok(latest) if latest == pinned => {
+            checks.push(Check::new(
+                "backend.patchright_latest_version",
+                category,
+                Status::Pass,
+                format!("Patchright release pin {} matches npm latest", pinned),
+            ));
+        }
+        Ok(latest) => {
+            checks.push(
+                Check::new(
+                    "backend.patchright_latest_version",
+                    category,
+                    Status::Warn,
+                    format!(
+                        "Patchright npm latest {} is newer than release pin {}",
+                        latest, pinned
+                    ),
+                )
+                .with_fix("upgrade agent-browser after a release with the new Patchright pin"),
+            );
+        }
+        Err(e) => {
+            checks.push(Check::new(
+                "backend.patchright_latest_version",
+                category,
+                Status::Info,
+                format!("Could not check Patchright npm latest: {}", e),
+            ));
+        }
+    }
+}
+
+fn installed_patchright_version(backend_root: &Path) -> Option<String> {
+    let package_json = backend_root
+        .join("node_modules")
+        .join("patchright")
+        .join("package.json");
+    let content = fs::read_to_string(package_json).ok()?;
+    let value: Value = serde_json::from_str(&content).ok()?;
+    value
+        .get("version")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+}
+
+fn fetch_latest_patchright_version() -> Result<String, String> {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| format!("runtime init failed: {}", e))?;
+    let client = reqwest::Client::builder()
+        .user_agent(format!("agent-browser/{}", env!("CARGO_PKG_VERSION")))
+        .timeout(Duration::from_secs(3))
+        .connect_timeout(Duration::from_secs(3))
+        .build()
+        .map_err(|e| format!("client init failed: {}", e))?;
+
+    let value: Value = rt
+        .block_on(async {
+            let response = client
+                .get(PATCHRIGHT_LATEST_URL)
+                .send()
+                .await
+                .map_err(|e| e.to_string())?
+                .error_for_status()
+                .map_err(|e| e.to_string())?;
+            response.json().await.map_err(|e| e.to_string())
+        })
+        .map_err(|e| format!("registry request failed: {}", e))?;
+
+    value
+        .get("version")
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
+        .ok_or_else(|| "registry response did not include a version".to_string())
+}
+
 fn query_chrome_version(path: &Path) -> Option<String> {
     let output = std::process::Command::new(path)
         .arg("--version")
@@ -202,6 +346,7 @@ pub(super) fn puppeteer_cache_dir() -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
 
     #[test]
     fn test_puppeteer_cache_dir_returns_sensible_default() {
@@ -214,5 +359,29 @@ mod tests {
             assert!(s.contains(".cache"));
             assert!(s.ends_with("puppeteer"));
         }
+    }
+
+    #[test]
+    fn test_installed_patchright_version_reads_package_json() {
+        let dir = TempDir::new().unwrap();
+        let package_dir = dir.path().join("node_modules").join("patchright");
+        fs::create_dir_all(&package_dir).unwrap();
+        fs::write(package_dir.join("package.json"), r#"{"version":"1.2.3"}"#).unwrap();
+
+        assert_eq!(
+            installed_patchright_version(dir.path()).as_deref(),
+            Some("1.2.3")
+        );
+    }
+
+    #[test]
+    fn test_installed_patchright_version_missing_or_invalid_is_unknown() {
+        let dir = TempDir::new().unwrap();
+        assert!(installed_patchright_version(dir.path()).is_none());
+
+        let package_dir = dir.path().join("node_modules").join("patchright");
+        fs::create_dir_all(&package_dir).unwrap();
+        fs::write(package_dir.join("package.json"), "{not-json}").unwrap();
+        assert!(installed_patchright_version(dir.path()).is_none());
     }
 }

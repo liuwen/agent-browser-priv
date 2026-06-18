@@ -29,7 +29,9 @@
     "build:docker": "docker build --platform linux/amd64 -t agent-browser-builder -f docker/Dockerfile.build .",
     "release": "pnpm run version:sync && pnpm run build:all-platforms",
     "postinstall": "node scripts/postinstall.js",
-    "build:dashboard": "cd packages/dashboard && pnpm build"
+    "build:dashboard": "cd packages/dashboard && pnpm build",
+    "runtime:update-check": "node scripts/check-runtime-updates.mjs",
+    "runtime:update-patchright": "node scripts/update-patchright-version.mjs"
   },
   "keywords": [
     "browser",

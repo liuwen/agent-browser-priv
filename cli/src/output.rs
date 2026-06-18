@@ -2654,7 +2654,8 @@ Usage: agent-browser doctor [options]
 
 Runs a battery of checks across environment, browser backend install, daemon
 state, config files, encryption key, providers, network reachability, and a
-live headless browser launch test.
+live headless browser launch test. For the default Patchright backend, reports
+installed version, release pin, and npm latest when network checks are enabled.
 
 Auto-cleans stale daemon socket/pid/version sidecar files. Destructive
 repairs (installing browser backends, purging old state files, generating a

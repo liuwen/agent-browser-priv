@@ -402,6 +402,8 @@ agent-browser doctor --json              # structured output for programmatic co
 ```
 
 `doctor` auto-cleans stale socket/pid/version sidecar files on every run.
+For the default Patchright backend, it also reports the installed Patchright
+version, the release pin, and npm latest when network checks are enabled.
 Destructive actions require `--fix`. Exit code is `0` if all checks pass
 (warnings OK), `1` if any fail.
 

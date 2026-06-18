@@ -7,6 +7,8 @@ use std::process::{exit, Command, Stdio};
 const LAST_KNOWN_GOOD_URL: &str =
     "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json";
 
+pub const PATCHRIGHT_VERSION: &str = "1.60.2";
+
 pub fn get_browsers_dir() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))

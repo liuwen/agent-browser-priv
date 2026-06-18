@@ -78,6 +78,8 @@ agent-browser upgrade
 
 Detects your installation method (npm, Homebrew, or Cargo) and runs the appropriate update command automatically. Displays the version change on success, or informs you if you are already on the latest version.
 
+Patchright updates are controlled by the installed `agent-browser` release. After upgrading `agent-browser`, run `agent-browser install` to refresh the Patchright backend to the version pinned by that release.
+
 ## Doctor
 
 `doctor` diagnoses your install and auto-cleans stale daemon files. Run it whenever something stops working unexpectedly, or after upgrades:
@@ -97,7 +99,7 @@ It checks:
 </thead>
 <tbody>
 <tr><td>Environment</td><td>CLI version, platform, home directory, state and socket dirs, free disk space</td></tr>
-<tr><td>Browser backend</td><td>Selected local backend install status, including default Patchright or explicit <code>--backend chrome</code></td></tr>
+<tr><td>Browser backend</td><td>Selected local backend install status, including default Patchright or explicit <code>--backend chrome</code>. For Patchright, also reports installed version, release pin, and npm latest when network checks are enabled.</td></tr>
 <tr><td>Chrome</td><td>Chrome install path and version, cache dir, Puppeteer fallback, user-data dir and profile count, optional <code>lightpanda</code> engine</td></tr>
 <tr><td>Daemons</td><td>Running daemons per session, stale <code>.sock</code> / <code>.pid</code> / <code>.version</code> / <code>.stream</code> files (auto-cleaned), version mismatch with the CLI, dashboard process liveness</td></tr>
 <tr><td>Config</td><td><code>~/.agent-browser/config.json</code>, <code>./agent-browser.json</code>, and any file at <code>AGENT_BROWSER_CONFIG</code> parse as valid JSON</td></tr>

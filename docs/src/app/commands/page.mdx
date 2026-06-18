@@ -435,6 +435,9 @@ agent-browser doctor --fix               # Also run destructive repairs (install
 agent-browser doctor --json              # Structured JSON output for agents
 ```
 
+For the default Patchright backend, `doctor` also reports installed version,
+release pin, and npm latest when network checks are enabled.
+
 Exit code is `0` if all checks pass (warnings are fine), `1` if any fail. See the [Installation page](/installation#doctor) for the full check catalog.
 
 ## Chat

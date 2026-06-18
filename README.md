@@ -74,6 +74,12 @@ agent-browser upgrade
 
 Detects your installation method (npm, Homebrew, or Cargo) and runs the appropriate update command automatically.
 
+`agent-browser doctor` reports the installed Patchright backend version, the
+Patchright version pinned by the current `agent-browser` release, and npm latest
+when network checks are enabled. Patchright updates are release-controlled:
+after upgrading `agent-browser`, run `agent-browser install` to refresh the
+backend to the version pinned by that release.
+
 ### Requirements
 
 - **Patchright backend** - Run `agent-browser install` to install pinned Patchright and its browser artifacts for the default local backend. Requires Node.js and npm for install and runtime launch.

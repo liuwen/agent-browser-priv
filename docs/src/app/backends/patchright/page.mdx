@@ -35,6 +35,12 @@ Patchright before the Rust daemon attaches over CDP. `agent-browser install`
 uses a pinned Patchright package lock and installs Patchright's browser
 artifacts.
 
+Patchright updates are not picked up automatically from npm. They are pinned in
+the `agent-browser` release so browser behavior stays reproducible. Run
+`agent-browser doctor` to see the installed Patchright version, the release pin,
+and npm latest when network checks are enabled. After upgrading `agent-browser`,
+run `agent-browser install` again to refresh the backend to the new pin.
+
 The backend honors proxy, proxy bypass, user agent, ignore-HTTPS-errors,
 download path, color scheme, and custom launch args. Remote-debugging address
 and port args are reserved and forced to localhost.
