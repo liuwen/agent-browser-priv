@@ -193,7 +193,7 @@ jobs:
           retention-days: 7
 
   publish:
-    name: Publish to npm
+    name: Prepare npm package
     needs: [check-release, build-binaries]
     if: needs.check-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest

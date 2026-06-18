@@ -1,20 +1,26 @@
 # agent-browser
 
-## 0.27.3-priv.8
+## 0.28.0-priv.1
 
 <!-- release:start -->
+### New Features
+
+- Rebased the fork onto upstream `agent-browser` 0.28.0, including the MCP server and plugin system.
+- Kept **agent-browser** as the primary installed command while retaining `agent-browser-priv` as a compatibility alias.
+- Kept **Patchright** as the default local Chrome-compatible backend. Use `--backend chrome` or `AGENT_BROWSER_BACKEND=chrome` to force the built-in Chrome CDP launcher.
+
+### Improvements
+
+- Preserved upstream plugin launch-mutator behavior while keeping backend-specific launch hashing and browser launch selection.
+- Added `--wait-until <none|domcontentloaded|load|networkidle>` to `open`, `goto`, and `navigate`, allowing challenge/debug pages to return immediately before bounded DOM/title checks.
+- Kept the release surface focused on Linux x64, Linux ARM64, and macOS ARM64 artifacts.
+- Kept npm trusted publishing and Homebrew tap update support for ad hoc installs and local daily use.
+
 ### Infrastructure
 
 - Fixed CI install parsing for `agent-browser install --with-deps`, made timeout-sensitive tests deterministic, and bounded long-running CI jobs.
 - Temporarily disabled Windows CI, release, and npm binary lanes while keeping restore placeholders; active artifacts are Linux x64, Linux ARM64, and macOS ARM64.
 - Added a release-gated Homebrew tap updater that generates formula checksums from published GitHub release assets and skips cleanly when tap credentials are not configured.
-
-### Contributors
-
-- @liuwen
-<!-- release:end -->
-
-## 0.27.3-priv.7
 
 ### Bug Fixes
 
@@ -22,23 +28,13 @@
 - Fixed Patchright browser WebSocket URLs by sending the CDP port in the HTTP `Host` header during readiness probing.
 - Added bounded CDP evaluation timeouts for wait/title/body-text diagnostics so challenge pages fail or match on the user-visible timeout instead of blocking behind a renderer call.
 - Stopped retrying daemon socket read timeouts against the same busy daemon, avoiding multi-minute command amplification.
-
-### Diagnostics
-
-- Added `--debug` launch trace lines for Patchright startup, CDP WebSocket connect, and target attachment.
-
-### Contributors
-
-- @liuwen
-
-## 0.27.3-priv.6
-
-### Bug Fixes
-
 - Forwarded proxy, proxy-bypass, user-agent, ignore-HTTPS-errors, download path, and color-scheme options into the default Patchright backend.
 - Kept Patchright CDP bound to localhost by filtering user remote-debugging args and appending the managed CDP bind last.
 - Made Patchright launch failure cleanup kill the child process group before bounded stderr collection, reducing orphaned browser and long-hang cases.
 - Made `--wait-until none` return without post-navigation title/URL evaluation, so challenge/debug pages do not turn non-blocking navigation into a renderer wait.
+- Made `agent-browser doctor` skip its live launch test when version-mismatched daemons are already active, avoiding long retry hangs and pointing users to `agent-browser close --all`.
+- Made `agent-browser doctor --fix` clean incompatible daemons before running launch checks.
+- Made `agent-browser close --all` force-clean version-mismatched daemons instead of negotiating with incompatible session sockets.
 
 ### Security
 
@@ -48,82 +44,30 @@
 
 - Updated README, docs, and bundled skills to document Patchright's Node.js runtime requirement, backend proxy support, and `--wait-until` usage.
 
-### Contributors
+### Diagnostics
 
-- @liuwen
-
-## 0.27.3-priv.5
-
-### Bug Fixes
-
-- Made `agent-browser doctor` skip its live launch test when version-mismatched daemons are already active, avoiding long retry hangs and pointing users to `agent-browser close --all`.
-- Made `agent-browser doctor --fix` clean incompatible daemons before running launch checks.
-- Made `agent-browser close --all` force-clean version-mismatched daemons instead of negotiating with incompatible session sockets.
-
-### Improvements
-
-- Added `--wait-until <none|domcontentloaded|load|networkidle>` to `open`, `goto`, and `navigate`, allowing challenge/debug pages to return immediately with `--wait-until none` before bounded DOM/title checks.
+- Added `--debug` launch trace lines for Patchright startup, CDP WebSocket connect, and target attachment.
 
 ### Contributors
 
 - @liuwen
+<!-- release:end -->
 
-## 0.27.3-priv.4
+## 0.28.0
 
 ### New Features
 
-- Made **agent-browser** the primary installed command while keeping `agent-browser-priv` as a compatibility alias for existing scripts.
-- Made **Patchright** the default local Chrome-compatible backend for this fork. Use `--backend chrome` or `AGENT_BROWSER_BACKEND=chrome` to force the built-in Chrome CDP launcher.
-
-### Improvements
-
-- Changed bare `agent-browser install` to prepare the default Patchright backend. Use `agent-browser install chrome` for Chrome for Testing.
-- Published the npm package on the standard dist-tag so `npm install -g agent-browser-priv` and `npx agent-browser-priv` work without custom tag arguments.
-- Updated `agent-browser doctor` and `agent-browser doctor --fix` to check the selected local backend, install Patchright by default, and reserve Chrome repair for `--backend chrome`.
-- Updated Patchright launches to use installed Patchright browser artifacts by default, with `--executable-path` still available for system Chrome.
-- Updated `agent-browser upgrade` to stay on this fork's npm package, Homebrew tap formula, and GitHub Cargo source.
-
-### Contributors
-
-- @liuwen
-
-## 0.27.3-priv.3
-
-### Improvements
-
-- Added the npm `priv` dist-tag to release publishing so prerelease versions can create or update the `agent-browser-priv` package.
-- Removed Linux musl artifacts from future release builds and npm downloads to keep the runtime matrix focused on glibc Linux, macOS ARM64, and Windows x64.
-
-### Contributors
-
-- @liuwen
-
-## 0.27.3-priv.2
-
-### Improvements
-
-- Restored **npm publishing** in the release workflow so `npx agent-browser-priv` can work once npm Trusted Publishing is configured for this repository.
-- Removed **macOS x64 release artifacts** from the Rust binary matrix to reduce release time and focus on macOS ARM64 for local daily use.
-
-### Contributors
-
-- @liuwen
-
-## 0.27.3-priv.1
-
-### New Features
-
-- Added **agent-browser-priv** as a fork release lane with renamed package, command, and GitHub release assets.
-- Added **Patchright backend** support via `--backend patchright`, plus `agent-browser-priv install patchright` for Patchright-managed browser artifacts in local, CI, and remote development environments.
+- **MCP server** - Added `agent-browser mcp`, a stdio Model Context Protocol server with typed tools, paginated discovery, protocol negotiation, and startup tool profiles. The default `core` profile keeps context small, while `--tools all` exposes full CLI parity and composed profiles such as `core,network,react` are supported (#1454)
+- **Plugin system** - Added out-of-process plugin support over the `agent-browser.plugin.v1` stdio protocol, with `plugin add/list/show/run`, manifest discovery, npm and GitHub refs, credential providers, browser provider plugins, launch mutators, custom command capabilities, config and env registry support, and capability-scoped policy gates (#1452)
 
 ### Infrastructure
 
-- Updated **GitHub release artifacts** to use `agent-browser-priv-*` names across macOS, Linux amd64/arm64, Linux musl amd64/arm64, and Windows.
-- Kept **Homebrew-first distribution** by creating GitHub release assets without npm publishing.
+- Added **context footprint eval coverage** for CLI skills, MCP core, and MCP full-profile surfaces, plus MCP parity tests to keep tool behavior aligned with the CLI (#1454)
 
 ### Contributors
 
-- @liuwen
+- @ctate
+<!-- release:end -->
 
 ## 0.27.3
 

@@ -297,12 +297,92 @@ Array.from(links).map(a => a.href);
 EOF
 ```
 
+## Authentication and Plugins
+
+```bash
+agent-browser auth save <name> --url <url> --username <user> --password-stdin
+agent-browser auth login <name>          # Login using saved credentials
+agent-browser auth login <name> --credential-provider <plugin> [--item <ref>] [--url <url>]
+agent-browser auth login <name> --username-selector <s> --password-selector <s> [--submit-selector <s>]
+agent-browser auth list                  # List saved auth profiles
+agent-browser auth show <name>           # Show profile metadata, no passwords
+agent-browser auth delete <name>         # Delete a saved profile
+agent-browser plugin add <ref>           # Add a plugin from npm or GitHub
+agent-browser plugin list                # List configured plugins
+agent-browser plugin show <name>         # Show one configured plugin
+agent-browser plugin run <name> <type> --payload <json>
+                                          # Run an arbitrary plugin request
+```
+
+Credential provider plugins run out-of-process over the
+`agent-browser.plugin.v1` stdio JSON protocol and must declare
+`credential.read`. Use `--confirm-actions plugin:<name>:credential.read`
+to require explicit approval before a plugin resolves secrets.
+
+Other capabilities use the same protocol:
+- `browser.provider`: `agent-browser --provider <name> open <url>`
+- `launch.mutate`: append local launch args, extensions, or init scripts
+- `command.run`: `agent-browser plugin run <name> <type> --payload <json>`
+
+`plugin run` is for `command.run` and custom capabilities. Core capabilities
+and protocol request types use their dedicated command paths.
+
 ## State Management
 
 ```bash
 agent-browser state save auth.json    # Save cookies, storage, auth state
 agent-browser state load auth.json    # Restore saved state
 ```
+
+## MCP Server
+
+```bash
+agent-browser mcp
+agent-browser mcp --tools all
+agent-browser mcp --tools core,network,react
+```
+
+Starts a stdio Model Context Protocol server. MCP clients should configure the
+server command as `agent-browser` with args `["mcp"]`. The server defaults to
+MCP protocol 2025-11-25 and accepts older supported client protocol versions
+during initialization.
+
+The default tools profile is `core`, which keeps MCP context small for everyday
+browser automation. Use `--tools all` for the full typed CLI parity surface, or
+combine profiles with commas, such as `--tools core,network,react`.
+
+Profiles:
+
+- `core` - Default. Navigation, snapshots, interaction, waits, reads, screenshots, JavaScript eval, close, tab basics, and profile discovery
+- `network` - Network routes, request inspection, HAR, headers, credentials, offline
+- `state` - Cookies, storage, auth, saved state, sessions, profiles, skills
+- `debug` - Console/errors, tracing, profiling, recording, clipboard, plugins, doctor, dashboard, install, upgrade, chat, diff, batch, confirm/deny
+- `tabs` - Back/forward/reload, tabs, windows, frames, dialogs
+- `react` - React tree/inspect/renders/suspense, vitals, pushstate
+- `mobile` - Viewport/device/geolocation/media, touch, swipe, mouse, keyboard
+- `all` - Every MCP tool, including the full typed CLI parity surface
+
+Common tools include:
+
+- `agent_browser_tools_profiles`
+- `agent_browser_open`
+- `agent_browser_snapshot`
+- `agent_browser_click`
+- `agent_browser_fill`
+- `agent_browser_type`
+- `agent_browser_press`
+- `agent_browser_wait_for_selector`
+- `agent_browser_screenshot`
+- `agent_browser_get_url`
+- `agent_browser_eval`
+- `agent_browser_close`
+
+Tool calls use the same config files and environment variables as the CLI. Each
+tool accepts typed arguments plus `extraArgs` for advanced CLI flags and exact
+CLI parity. Tool discovery is paginated and includes read-only/open-world
+annotations so modern MCP clients can load the large typed surface
+incrementally. Use the `session` tool argument or `AGENT_BROWSER_SESSION` to
+isolate browser state.
 
 ## Global Options
 
@@ -312,7 +392,7 @@ agent-browser --json ...              # JSON output for parsing
 agent-browser --headed ...            # Show browser window (not headless)
 agent-browser --cdp <port> ...        # Connect via Chrome DevTools Protocol
 agent-browser --backend <name> ...    # Local backend: patchright (default), chrome
-agent-browser -p <provider> ...       # Cloud browser provider (--provider)
+agent-browser -p <provider> ...       # Browser provider or configured provider plugin
 agent-browser --proxy <url> ...       # Use proxy server
 agent-browser --proxy-bypass <hosts>  # Hosts to bypass proxy
 agent-browser --wait-until <state>    # Navigation wait: none, domcontentloaded, load, networkidle
@@ -399,8 +479,9 @@ AGENT_BROWSER_EXTENSIONS="/ext1,/ext2"       # Comma-separated extension paths
 AGENT_BROWSER_INIT_SCRIPTS="/a.js,/b.js"     # Comma-separated init script paths
 AGENT_BROWSER_ENABLE="react-devtools"        # Comma-separated built-in init script features
 AGENT_BROWSER_HIDE_SCROLLBARS="false"        # Keep native scrollbars visible in headless Chromium screenshots
-AGENT_BROWSER_PROVIDER="browserbase"         # Cloud browser provider
+AGENT_BROWSER_PROVIDER="browserbase"         # Browser provider or configured provider plugin
 AGENT_BROWSER_STREAM_PORT="9223"             # Override WebSocket streaming port (default: OS-assigned)
 AGENT_BROWSER_CONFIG="./agent-browser.json"  # Custom config file
 AGENT_BROWSER_CDP="9222"                     # Connect daemon to CDP port or WebSocket URL
+AGENT_BROWSER_PLUGINS='[{"name":"vault","command":"agent-browser-plugin-vault","capabilities":["credential.read"]},{"name":"stealth","command":"agent-browser-plugin-stealth","capabilities":["launch.mutate"]}]'
 ```

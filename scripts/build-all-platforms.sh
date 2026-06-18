@@ -67,8 +67,17 @@ build_target "aarch64-unknown-linux-gnu" "aarch64-unknown-linux-gnu.2.28" "agent
 # is re-enabled:
 # build_target "x86_64-pc-windows-gnu" "x86_64-pc-windows-gnu" "agent-browser-priv-win32-x64.exe"
 
+# macOS x64 (via zig for cross-compilation)
+build_target "x86_64-apple-darwin" "x86_64-apple-darwin" "agent-browser-priv-darwin-x64"
+
 # macOS ARM64 (via zig for cross-compilation)
 build_target "aarch64-apple-darwin" "aarch64-apple-darwin" "agent-browser-priv-darwin-arm64"
+
+# Linux musl x64 (Alpine)
+build_target "x86_64-unknown-linux-musl" "x86_64-unknown-linux-musl" "agent-browser-priv-linux-musl-x64"
+
+# Linux musl ARM64 (Alpine)
+build_target "aarch64-unknown-linux-musl" "aarch64-unknown-linux-musl" "agent-browser-priv-linux-musl-arm64"
 
 echo ""
 echo -e "${GREEN}Build complete!${NC}"
