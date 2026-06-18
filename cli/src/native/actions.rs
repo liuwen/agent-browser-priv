@@ -193,11 +193,7 @@ struct DrainedEvents {
 /// `storage_state` is handled separately in `handle_launch()`: explicit
 /// `storageState` launches always require a clean local browser so the loaded
 /// state replaces the prior session instead of merging into it.
-fn launch_hash(
-    opts: &LaunchOptions,
-    backend: Option<&str>,
-    plugin_init_scripts: &[String],
-) -> u64 {
+fn launch_hash(opts: &LaunchOptions, backend: Option<&str>, plugin_init_scripts: &[String]) -> u64 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
