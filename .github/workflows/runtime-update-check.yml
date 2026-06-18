@@ -131,11 +131,25 @@ jobs:
           EOF
 
           if gh pr view "$branch" --json number >/tmp/pr.json 2>/dev/null; then
-            gh pr edit "$branch" --title "Update Patchright backend to ${TARGET}" --body-file pr-body.md
+            gh pr edit "$branch" --title "Update Patchright backend to ${TARGET}" --body-file pr-body.md || {
+              echo "::warning::Patchright branch was pushed, but updating the PR failed."
+              echo "Patchright branch pushed: ${branch}" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            }
           else
             gh pr create \
               --base main \
               --head "$branch" \
               --title "Update Patchright backend to ${TARGET}" \
-              --body-file pr-body.md
+              --body-file pr-body.md || {
+                echo "::warning::Patchright branch was pushed, but GitHub Actions could not create the PR. Enable repository Actions PR creation or create it manually."
+                {
+                  echo ""
+                  echo "## Patchright branch pushed"
+                  echo ""
+                  echo "- Branch: \`${branch}\`"
+                  echo "- Manual PR URL: https://github.com/${{ github.repository }}/pull/new/${branch}"
+                } >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+              }
           fi
