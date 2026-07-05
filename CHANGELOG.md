@@ -1,8 +1,40 @@
 # agent-browser
 
-## 0.28.0-priv.2
+## 0.31.1-priv.1
 
 <!-- release:start -->
+### New Features
+
+- Synced the private fork with upstream `agent-browser` 0.31.1, including the `read` command and MCP tool for agent-readable text extraction.
+- Added upstream restore workflow support with `--restore`, `--restore-save`, validation flags, worktree-scoped `session id`, `session info`, and `--namespace`.
+- Brought in upstream sandbox helper source, examples, and documentation without adding a private release publish lane for `@agent-browser/sandbox`.
+
+### Improvements
+
+- Updated the default Patchright backend pin from 1.61.0 to 1.61.1.
+- Kept Patchright as the default local Chrome-compatible backend while preserving `--backend chrome` for the built-in Chrome launcher.
+- Kept the private release surface focused on Linux x64, Linux ARM64, and macOS ARM64 artifacts.
+
+### Bug Fixes
+
+- Included upstream URL wait glob matching fixes for `wait --url` and `waitforurl`.
+- Included upstream React renderer detection fixes for Next.js 16.3 Turbopack.
+
+### Infrastructure
+
+- Kept release builds and smoke validation on GitHub Actions, including npm, GitHub release assets, and Homebrew tap updates.
+- Preserved Windows release placeholders while keeping Windows artifacts disabled for this fork.
+
+### Contributors
+
+- @liuwen
+- @ctate
+- @gaearon
+- @gaojude
+<!-- release:end -->
+
+## 0.28.0-priv.2
+
 ### Improvements
 
 - Updated the default Patchright backend pin from 1.60.2 to 1.61.0.
@@ -21,7 +53,6 @@
 ### Contributors
 
 - @liuwen
-<!-- release:end -->
 
 ## 0.28.0-priv.1
 

@@ -12,6 +12,13 @@ agent-browser open <url>      # Launch + navigate (aliases: goto, navigate)
 agent-browser open --wait-until none <url>  # Send navigation and return immediately
                               # Supports: https://, http://, file://, about:, data://
                               # Auto-prepends https:// if no protocol given
+agent-browser read [url]      # Fetch agent-readable text, or read rendered active-tab DOM
+                              # Explicit URLs send Accept: text/markdown, then try .md if needed
+                              # Walks ancestor paths for llms.txt before HTML fallback
+                              # --llms and --require-md without URL use the active tab URL
+                              # --filter narrows page content to matching heading sections
+                              # Honors --allowed-domains, --content-boundaries, and --max-output
+                              # Options: --raw, --require-md, --outline, --llms <index|full>, --filter, --timeout <ms>
 agent-browser back            # Go back
 agent-browser forward         # Go forward
 agent-browser reload          # Reload page
@@ -32,11 +39,7 @@ agent-browser batch \
   '["navigate","http://localhost:3000/target"]'
 ```
 
-`open` with no URL gives you a clean launch so any interception, cookies,
-or init scripts you register take effect on the *first* real navigation.
-Use for SSR-only debug (`--resource-type script`), protected-origin auth,
-or capturing fresh `react suspense`/`vitals` state without noise from a
-prior page.
+`open` with no URL gives you a clean launch so any interception, cookies, or init scripts you register take effect on the *first* real navigation. Use for SSR-only debug (`--resource-type script`), protected-origin auth, or capturing fresh `react suspense`/`vitals` state without noise from a prior page.
 
 ## Snapshot (page analysis)
 
@@ -72,10 +75,7 @@ agent-browser drag @e1 @e2        # Drag and drop
 agent-browser upload @e1 file.pdf # Upload files
 ```
 
-Clicks fail before dispatch when another element covers the target's click
-point. The error names the covering element, for example
-`covered by <div#consent-banner>`. Dismiss or interact with that element, run a
-fresh snapshot, then retry the original action.
+Clicks fail before dispatch when another element covers the target's click point. The error names the covering element, for example `covered by <div#consent-banner>`. Dismiss or interact with that element, run a fresh snapshot, then retry the original action.
 
 ## Get Information
 
@@ -109,8 +109,7 @@ agent-browser screenshot --full   # Full page
 agent-browser pdf output.pdf      # Save as PDF
 ```
 
-Headless Chromium screenshots hide native scrollbars for consistent image output.
-Pass `--hide-scrollbars false` when launching to keep native scrollbars visible.
+Headless Chromium screenshots hide native scrollbars for consistent image output. Pass `--hide-scrollbars false` when launching to keep native scrollbars visible.
 
 ## Video Recording
 
@@ -209,14 +208,9 @@ agent-browser tab close docs                   # Close tab by label
 agent-browser window new                       # New window
 ```
 
-Tab ids are stable strings of the form `t1`, `t2`, `t3`. They're never reused
-within a session, so the same id keeps referring to the same tab across
-commands. Positional integers are **not** accepted — `tab 2` errors with a
-teaching message; use `t2`.
+Tab ids are stable strings of the form `t1`, `t2`, `t3`. They're never reused within a session, so the same id keeps referring to the same tab across commands. Positional integers are **not** accepted — `tab 2` errors with a teaching message; use `t2`.
 
-User-assigned labels (`docs`, `app`, `admin`) are interchangeable with ids
-everywhere a tab ref is accepted. Labels are the agent-friendly way to write
-multi-tab workflows:
+User-assigned labels (`docs`, `app`, `admin`) are interchangeable with ids everywhere a tab ref is accepted. Labels are the agent-friendly way to write multi-tab workflows:
 
 ```bash
 agent-browser tab new --label docs https://docs.example.com
@@ -228,10 +222,7 @@ agent-browser tab app                    # switch to app
 agent-browser tab close docs             # close by label
 ```
 
-Labels are never auto-generated, never rewritten on navigation, and must be
-unique within a session. To interact with another tab, switch to it first:
-the daemon maintains a single active tab, so refs (`@eN`) belong to the tab
-that was active when the snapshot ran.
+Labels are never auto-generated, never rewritten on navigation, and must be unique within a session. To interact with another tab, switch to it first: the daemon maintains a single active tab, so refs (`@eN`) belong to the tab that was active when the snapshot ran.
 
 ## Frames
 
@@ -426,8 +417,7 @@ agent-browser profiler stop trace.json    # Stop and save profile
 
 ## React / Web Vitals
 
-Requires `--enable react-devtools` at launch for the `react ...` commands.
-`vitals` and `pushstate` are framework-agnostic.
+Requires `--enable react-devtools` at launch for the `react ...` commands. `vitals` and `pushstate` are framework-agnostic.
 
 ```bash
 agent-browser open --enable react-devtools <url>    # Launch with React hook installed
@@ -441,8 +431,7 @@ agent-browser vitals [url] [--json]                 # LCP/CLS/TTFB/FCP/INP + hyd
 agent-browser pushstate <url>                       # SPA client-side nav (auto-detects Next router)
 ```
 
-`vitals` prints a summary by default and uses the same fields as the structured
-`--json` response.
+`vitals` prints a summary by default and uses the same fields as the structured `--json` response.
 
 ## Init scripts
 
@@ -459,9 +448,7 @@ agent-browser cookies set --curl <file>                             # Auto-detec
 agent-browser cookies set --curl <file> --domain example.com        # Scope to a domain
 ```
 
-Supported formats: JSON array of `{name, value}`, a cURL dump from
-DevTools -> Network -> Copy as cURL, or a bare Cookie header. Errors never
-echo cookie values.
+Supported formats: JSON array of `{name, value}`, a cURL dump from DevTools -> Network -> Copy as cURL, or a bare Cookie header. Errors never echo cookie values.
 
 ## Network route by resource type
 
