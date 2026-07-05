@@ -191,6 +191,18 @@ struct DrainedEvents {
 /// `storage_state` is handled separately in `handle_launch()`: explicit
 /// `storageState` launches always require a clean local browser so the loaded
 /// state replaces the prior session instead of merging into it.
+fn resolved_engine(engine: Option<&str>) -> &str {
+    engine.unwrap_or("chrome")
+}
+
+fn resolved_local_backend<'a>(engine: Option<&str>, backend: Option<&'a str>) -> &'a str {
+    backend.unwrap_or(if resolved_engine(engine) == "chrome" {
+        "patchright"
+    } else {
+        "chrome"
+    })
+}
+
 fn launch_hash(
     opts: &LaunchOptions,
     backend: Option<&str>,
@@ -204,9 +216,14 @@ fn launch_hash(
     use std::hash::{Hash, Hasher};
 
     let (connection_kind, connection_target) = connection;
+    let backend_for_hash = if connection_kind == "local" {
+        Some(resolved_local_backend(engine, backend))
+    } else {
+        None
+    };
     let mut h = DefaultHasher::new();
-    engine.hash(&mut h);
-    backend.hash(&mut h);
+    resolved_engine(engine).hash(&mut h);
+    backend_for_hash.hash(&mut h);
     connection_kind.hash(&mut h);
     connection_target.hash(&mut h);
     opts.headless.hash(&mut h);
@@ -10524,6 +10541,18 @@ printf '%s' '{"protocol":"agent-browser.plugin.v1","success":true,"data":{}}'
     fn test_launch_hash_includes_engine_and_connection_identity() {
         let opts = LaunchOptions::default();
 
+        assert_eq!(
+            launch_hash(&opts, None, &[], &[], &[], None, ("local", None)),
+            launch_hash(
+                &opts,
+                Some("patchright"),
+                &[],
+                &[],
+                &[],
+                Some("chrome"),
+                ("local", None)
+            )
+        );
         assert_ne!(
             launch_hash(
                 &opts,

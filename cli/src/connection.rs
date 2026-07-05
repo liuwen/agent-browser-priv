@@ -580,6 +580,18 @@ fn apply_daemon_env(cmd: &mut Command, session: &str, opts: &DaemonOptions) {
     }
 }
 
+fn resolved_engine(engine: Option<&str>) -> &str {
+    engine.unwrap_or("chrome")
+}
+
+fn resolved_local_backend<'a>(engine: Option<&str>, backend: Option<&'a str>) -> &'a str {
+    backend.unwrap_or(if resolved_engine(engine) == "chrome" {
+        "patchright"
+    } else {
+        "chrome"
+    })
+}
+
 fn daemon_config_fingerprint(opts: &DaemonOptions) -> String {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     opts.debug.hash(&mut hasher);
@@ -589,8 +601,8 @@ fn daemon_config_fingerprint(opts: &DaemonOptions) -> String {
     opts.idle_timeout.hash(&mut hasher);
     opts.default_timeout.hash(&mut hasher);
     opts.no_auto_dialog.hash(&mut hasher);
-    opts.engine.hash(&mut hasher);
-    opts.backend.hash(&mut hasher);
+    resolved_engine(opts.engine).hash(&mut hasher);
+    resolved_local_backend(opts.engine, opts.backend).hash(&mut hasher);
     format!("{:016x}", hasher.finish())
 }
 
@@ -1286,6 +1298,7 @@ mod tests {
             action_policy: None,
             confirm_actions: None,
             engine: None,
+            backend: None,
             auto_connect: false,
             idle_timeout,
             default_timeout: None,
@@ -1302,6 +1315,11 @@ mod tests {
         let idle_changed = test_daemon_options(Some("1000"), false, None);
         let dialog_changed = test_daemon_options(None, true, None);
         let domains_changed = test_daemon_options(None, false, Some(&domains));
+        let mut explicit_default = test_daemon_options(None, false, None);
+        explicit_default.engine = Some("chrome");
+        explicit_default.backend = Some("patchright");
+        let mut chrome_backend = test_daemon_options(None, false, None);
+        chrome_backend.backend = Some("chrome");
 
         assert_ne!(
             daemon_config_fingerprint(&base),
@@ -1314,6 +1332,14 @@ mod tests {
         assert_ne!(
             daemon_config_fingerprint(&base),
             daemon_config_fingerprint(&domains_changed)
+        );
+        assert_eq!(
+            daemon_config_fingerprint(&base),
+            daemon_config_fingerprint(&explicit_default)
+        );
+        assert_ne!(
+            daemon_config_fingerprint(&base),
+            daemon_config_fingerprint(&chrome_backend)
         );
     }
 
