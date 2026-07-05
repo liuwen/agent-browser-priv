@@ -14,6 +14,8 @@ This installs a single discovery skill that teaches your agent about agent-brows
 
 Agents retrieve skill content at runtime using the `agent-browser skills` command. This always serves content matching the installed CLI version, so instructions never go stale.
 
+Binary-only installs such as Homebrew hydrate bundled skills into `~/.agent-browser/skills/<version>` when no package directory is available. Use `agent-browser skills path <name>` when an agent needs a real filesystem path.
+
 <table>
   <thead>
     <tr>
@@ -72,4 +74,4 @@ Use `agent-browser skills list` to see all available skills, then `agent-browser
 
 ## Source
 
-All skill files are in the [`skills/`](https://github.com/vercel-labs/agent-browser/tree/main/skills) and [`skill-data/`](https://github.com/vercel-labs/agent-browser/tree/main/skill-data) directories of the repository. The `skills/` directory holds the discovery stub that `npx skills add` installs; the `skill-data/` directory holds the runtime skill content served by the CLI.
+Source skill files are in the [`skills/`](https://github.com/vercel-labs/agent-browser/tree/main/skills) and [`skill-data/`](https://github.com/vercel-labs/agent-browser/tree/main/skill-data) directories of the repository. The `skills/` directory holds the discovery stub that `npx skills add` installs; the `skill-data/` directory holds the runtime skill content served by the CLI.

@@ -1,8 +1,19 @@
 # agent-browser
 
-## 0.31.1-priv.1
+## 0.31.1-priv.2
 
 <!-- release:start -->
+### Bug Fixes
+
+- Fixed **Homebrew skills packaging** by hydrating version-matched bundled skills into `~/.agent-browser/skills/<version>` when a binary-only install cannot find package directories.
+
+### Contributors
+
+- @liuwen
+<!-- release:end -->
+
+## 0.31.1-priv.1
+
 ### New Features
 
 - Synced the private fork with upstream `agent-browser` 0.31.1, including the `read` command and MCP tool for agent-readable text extraction.
@@ -31,7 +42,6 @@
 - @ctate
 - @gaearon
 - @gaojude
-<!-- release:end -->
 
 ## 0.28.0-priv.2
 

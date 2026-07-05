@@ -470,6 +470,8 @@ EOF
 
 ## When to load another skill
 
+`agent-browser skills get ...` serves version-matched bundled content. On binary-only installs such as Homebrew, the CLI may hydrate those files into `~/.agent-browser/skills/<version>` before serving them. Use `agent-browser skills path <name>` when a real filesystem path is needed; do not assume npm-style package directories.
+
 - **Electron desktop app** (VS Code, Slack desktop, Discord, Figma, etc.): `agent-browser skills get electron`
 - **Slack workspace automation**: `agent-browser skills get slack`
 - **Exploratory testing / QA / bug hunts**: `agent-browser skills get dogfood`
