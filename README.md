@@ -64,6 +64,8 @@ On Linux, install system dependencies:
 agent-browser install --with-deps
 ```
 
+This exits nonzero if the package manager cannot install every required browser library.
+
 ### Updating
 
 Upgrade to the latest version:
@@ -99,12 +101,9 @@ agent-browser screenshot page.png
 agent-browser close
 ```
 
-Clicks fail early when another element covers the target's click point,
-for example a consent banner or modal. Dismiss or interact with the reported
-covering element, then take a fresh snapshot before retrying the original ref.
+Clicks fail early when another element covers the target's click point, for example a consent banner or modal. Dismiss or interact with the reported covering element, then take a fresh snapshot before retrying the original ref.
 
-Headless Chromium screenshots hide native scrollbars for consistent image output.
-Pass `--hide-scrollbars false` when launching to keep native scrollbars visible.
+Headless Chromium screenshots hide native scrollbars for consistent image output. Pass `--hide-scrollbars false` when launching to keep native scrollbars visible.
 
 ### Traditional Selectors (also supported)
 
@@ -122,6 +121,7 @@ agent-browser find role button click --name "Submit"
 agent-browser open                    # Launch browser (no navigation); stays on about:blank
 agent-browser open <url>              # Launch + navigate to URL (aliases: goto, navigate)
 agent-browser open --wait-until none <url>  # Return immediately after navigation is sent
+agent-browser read [url]              # Fetch agent-readable text, or read rendered active-tab DOM
 agent-browser click <sel>             # Click element (--new-tab to open in new tab)
 agent-browser dblclick <sel>          # Double-click element
 agent-browser focus <sel>             # Focus element
@@ -171,6 +171,23 @@ agent-browser get count <sel>         # Count matching elements
 agent-browser get box <sel>           # Get bounding box
 agent-browser get styles <sel>        # Get computed styles
 ```
+
+### Read Agent-Friendly Text
+
+```bash
+agent-browser read
+agent-browser read https://example.com/article
+agent-browser read https://example.com/article --filter overview
+agent-browser read https://example.com/article --outline
+agent-browser read https://docs.example.com --llms index --filter auth
+agent-browser read https://docs.example.com --llms full --filter auth
+agent-browser read example.com/article --require-md
+agent-browser read https://example.com/article --json
+```
+
+`read` fetches a URL without launching Chrome. Omit the URL to read the rendered DOM of the active tab in the current browser session, including browser auth state and client-side updates. Explicit URL reads send `Accept: text/markdown` by default, try the same URL with `.md` appended when the first response is not markdown, walk ancestor paths toward `/` to find the nearest `llms.txt` for a matching docs link, print markdown or plain text when available, and fall back to readable text extracted from HTML. `--llms` and `--require-md` with no URL use the active tab URL because they depend on HTTP resources. `read` does not read `llms-full.txt` unless you ask for it.
+
+Options: `--raw` prints the response body without HTML extraction, `--require-md` fails unless the server returns `Content-Type: text/markdown`, `--outline` prints a compact heading outline for one page, `--llms index` prints a compact nearest-ancestor `llms.txt` link list, `--llms full` reads the nearest-ancestor `llms-full.txt`, `--filter <text>` narrows page sections, llms links/sections, or outline headings, and `--timeout <ms>` changes the request timeout. Global safeguards such as `--allowed-domains`, `--content-boundaries`, and `--max-output` also apply to read fetches and output.
 
 ### Check State
 
@@ -228,9 +245,7 @@ agent-browser wait "#spinner" --state hidden
 
 ### Batch Execution
 
-Execute multiple commands in a single invocation. Commands can be passed as
-quoted arguments or piped as JSON via stdin. This avoids per-command process
-startup overhead when running multi-step workflows.
+Execute multiple commands in a single invocation. Commands can be passed as quoted arguments or piped as JSON via stdin. This avoids per-command process startup overhead when running multi-step workflows.
 
 ```bash
 # Argument mode: each quoted argument is a full command
@@ -324,15 +339,9 @@ agent-browser tab close [t<N>|label]           # Close a tab (defaults to active
 agent-browser window new                       # New window
 ```
 
-Tab ids are stable strings of the form `t1`, `t2`, `t3`. They're never reused
-within a session, so scripts and agents can keep referring to the same tab
-even after other tabs are opened or closed. Positional integers like `tab 2`
-are **not** accepted; the `t` prefix disambiguates handles from indices and
-mirrors the `@e1` convention used for element refs.
+Tab ids are stable strings of the form `t1`, `t2`, `t3`. They're never reused within a session, so scripts and agents can keep referring to the same tab even after other tabs are opened or closed. Positional integers like `tab 2` are **not** accepted; the `t` prefix disambiguates handles from indices and mirrors the `@e1` convention used for element refs.
 
-You can also assign a memorable label (`docs`, `app`, `admin`) and use it
-interchangeably with the id. Labels are never auto-generated and never
-rewritten on navigation — they're yours to name and keep:
+You can also assign a memorable label (`docs`, `app`, `admin`) and use it interchangeably with the id. Labels are never auto-generated and never rewritten on navigation — they're yours to name and keep:
 
 ```bash
 agent-browser tab new --label docs https://docs.example.com
@@ -412,10 +421,7 @@ agent-browser pushstate <url>         # SPA client-side nav; auto-detects window
 
 ### Pre-navigation setup
 
-Some flows (SSR debug, auth cookies for protected origins, init scripts)
-need state set up *before* the first navigation. Use `open` with no URL
-to launch the browser, then stage cookies / routes / init scripts, then
-navigate. `batch` sends it all in one CLI call:
+Some flows (SSR debug, auth cookies for protected origins, init scripts) need state set up *before* the first navigation. Use `open` with no URL to launch the browser, then stage cookies / routes / init scripts, then navigate. `batch` sends it all in one CLI call:
 
 ```bash
 agent-browser batch \
@@ -425,14 +431,11 @@ agent-browser batch \
   '["navigate","http://localhost:3000/target"]'
 ```
 
-Without `batch` the same sequence is three commands that all reuse the
-same daemon (fast, but not one turn).
+Without `batch` the same sequence is three commands that all reuse the same daemon (fast, but not one turn).
 
 ### React / Web Vitals
 
-Agent-browser ships with first-class React introspection and universal Web
-Vitals metrics. The React commands need the React DevTools hook installed at
-launch; Web Vitals and pushstate are framework-agnostic.
+Agent-browser ships with first-class React introspection and universal Web Vitals metrics. The React commands need the React DevTools hook installed at launch; Web Vitals and pushstate are framework-agnostic.
 
 ```bash
 agent-browser open --enable react-devtools <url>   # Launch with React hook installed
@@ -445,15 +448,10 @@ agent-browser react suspense [--only-dynamic] [--json]  # Suspense boundaries + 
 agent-browser vitals [url] [--json]                # LCP/CLS/TTFB/FCP/INP + hydration summary
 ```
 
-Each `react ...` subcommand requires `--enable react-devtools` to have been
-passed at launch (the React DevTools `installHook.js` is embedded in the
-binary). Without it the commands error with `React DevTools hook not installed
+Each `react ...` subcommand requires `--enable react-devtools` to have been passed at launch (the React DevTools `installHook.js` is embedded in the binary). Without it the commands error with `React DevTools hook not installed
 - relaunch with --enable react-devtools`.
 
-Works on any React app — Next.js, Remix, Vite+React, CRA, TanStack Start,
-React Native Web, etc. `vitals` and `pushstate` are framework-agnostic.
-`vitals` prints a summary by default; pass `--json` for the full structured
-payload.
+Works on any React app — Next.js, Remix, Vite+React, CRA, TanStack Start, React Native Web, etc. `vitals` and `pushstate` are framework-agnostic. `vitals` prints a summary by default; pass `--json` for the full structured payload.
 
 ### Init scripts
 
@@ -573,7 +571,7 @@ agent-browser provides multiple ways to persist login sessions so you don't re-a
 |----------|----------|------------|
 | **Chrome profile reuse** | Reuse your existing Chrome login state (cookies, sessions) with zero setup | `--profile <name>` / `AGENT_BROWSER_PROFILE` |
 | **Persistent profile** | Full browser state (cookies, IndexedDB, service workers, cache) across restarts | `--profile <path>` / `AGENT_BROWSER_PROFILE` |
-| **Session persistence** | Auto-save/restore cookies + localStorage by name | `--session-name <name>` / `AGENT_BROWSER_SESSION_NAME` |
+| **Session persistence** | Auto-save/restore cookies + localStorage from a stable session key | `--session <id> --restore` / `AGENT_BROWSER_RESTORE` |
 | **Import from your browser** | Grab auth from a Chrome session you already logged into | `--auto-connect` + `state save` |
 | **State file** | Load a previously saved state JSON on launch | `--state <path>` / `AGENT_BROWSER_STATE` |
 | **Auth vault** | Store credentials locally (encrypted), login by name | `auth save` / `auth login` |
@@ -594,9 +592,10 @@ agent-browser --auto-connect state save ./my-auth.json
 # 3. Use the saved auth in future sessions
 agent-browser --state ./my-auth.json open https://app.example.com/dashboard
 
-# 4. Or use --session-name for automatic persistence
-agent-browser --session-name myapp state load ./my-auth.json
-# From now on, --session-name myapp auto-saves/restores this state
+# 4. Or use --restore for automatic persistence
+SESSION="$(agent-browser session id --scope worktree --prefix myapp)"
+agent-browser --session "$SESSION" --restore --state ./my-auth.json open https://app.example.com/dashboard
+# From now on, --session "$SESSION" --restore auto-saves/restores this state
 ```
 
 > **Security notes:**
@@ -626,6 +625,12 @@ agent-browser session list
 
 # Show current session
 agent-browser session
+
+# Generate a stable worktree-scoped session id
+agent-browser session id --scope worktree --prefix next-dev-loop
+
+# Inspect daemon, launch, and restore status
+agent-browser session info --json
 ```
 
 Each session has its own:
@@ -684,18 +689,18 @@ The profile directory stores:
 
 ## Session Persistence
 
-Alternatively, use `--session-name` to automatically save and restore cookies and localStorage across browser restarts:
+Use `--restore` with a stable `--session` to automatically save and restore cookies and localStorage across browser restarts:
 
 ```bash
-# Auto-save/load state for "twitter" session
-agent-browser --session-name twitter open twitter.com
+# Generate a stable id for this worktree and auto-save/load state
+SESSION="$(agent-browser session id --scope worktree --prefix twitter)"
+agent-browser --session "$SESSION" --restore open twitter.com
 
 # Login once, then state persists automatically
 # State files stored in ~/.agent-browser/sessions/
 
-# Or via environment variable
-export AGENT_BROWSER_SESSION_NAME=twitter
-agent-browser open twitter.com
+# Optional: validate restored state before auto-saving again
+agent-browser --session "$SESSION" --restore --restore-check-text Dashboard open twitter.com
 ```
 
 ### State Encryption
@@ -707,12 +712,15 @@ Encrypt saved session data at rest with AES-256-GCM:
 export AGENT_BROWSER_ENCRYPTION_KEY=<64-char-hex-key>
 
 # State files are now encrypted automatically
-agent-browser --session-name secure open example.com
+agent-browser --session secure --restore open example.com
 ```
 
 | Variable                          | Description                                        |
 | --------------------------------- | -------------------------------------------------- |
-| `AGENT_BROWSER_SESSION_NAME`      | Auto-save/load state persistence name              |
+| `AGENT_BROWSER_RESTORE`           | Auto-save/load state persistence name              |
+| `AGENT_BROWSER_RESTORE_SAVE`      | Restore save policy: `auto`, `always`, or `never`  |
+| `AGENT_BROWSER_NAMESPACE`         | Namespace for daemon sockets and restore state     |
+| `AGENT_BROWSER_SESSION_NAME`      | Legacy auto-save/load state persistence name       |
 | `AGENT_BROWSER_ENCRYPTION_KEY`    | 64-char hex key for AES-256-GCM encryption         |
 | `AGENT_BROWSER_STATE_EXPIRE_DAYS` | Auto-delete states older than N days (default: 30) |
 
@@ -877,7 +885,13 @@ This is useful for multimodal AI models that can reason about visual layout, unl
 | Option | Description |
 |--------|-------------|
 | `--session <name>` | Use isolated session (or `AGENT_BROWSER_SESSION` env) |
-| `--session-name <name>` | Auto-save/restore session state (or `AGENT_BROWSER_SESSION_NAME` env) |
+| `--restore [name]` | Auto-save/restore session state. Bare `--restore` uses `--session` as the key |
+| `--restore-save <policy>` | Restore save policy: `auto`, `always`, or `never` |
+| `--restore-check-url <glob>` | Validate restored state against a URL pattern |
+| `--restore-check-text <text>` | Validate restored state against page text |
+| `--restore-check-fn <js>` | Validate restored state against a truthy JavaScript expression |
+| `--namespace <name>` | Isolate daemon sockets and restore-state directories |
+| `--session-name <name>` | Legacy alias for restore persistence key |
 | `--profile <name\|path>` | Chrome profile name or persistent directory path (or `AGENT_BROWSER_PROFILE` env) |
 | `--state <path>` | Load storage state from JSON file (or `AGENT_BROWSER_STATE` env) |
 | `--headers <json>` | Set HTTP headers scoped to the URL's origin |
@@ -919,23 +933,68 @@ This is useful for multimodal AI models that can reason about visual layout, unl
 | `--config <path>` | Use a custom config file (or `AGENT_BROWSER_CONFIG` env) |
 | `--debug` | Debug output |
 
-## Local backends
+## Patchright fork behavior
 
-This fork defaults local Chrome-compatible launches to Patchright. For fresh
-remote hosts, sandboxes, and CI environments, install the default backend once:
+This fork keeps the upstream `agent-browser` command surface and adds a backend
+choice for local Chrome-compatible launches. Normal commands remain the same:
+
+```bash
+agent-browser open https://example.com
+agent-browser snapshot -i
+agent-browser get title
+agent-browser close
+```
+
+The fork-specific default is `--backend patchright` for local Chrome launches.
+Patchright launches the browser process and exposes a localhost CDP endpoint;
+the Rust daemon still drives the page through CDP after launch. This gives a
+more realistic local browser lane for development, sandboxes, and CI without
+making agents learn a separate wrapper command.
+
+Fork-specific command surface:
+
+```bash
+agent-browser install                  # install default Patchright backend
+agent-browser install patchright       # same, explicit target
+agent-browser install chrome           # install Chrome for Testing for --backend chrome
+agent-browser install --with-deps      # Linux system deps plus default backend
+agent-browser --backend patchright open https://example.com
+agent-browser --backend chrome open https://example.com
+AGENT_BROWSER_BACKEND=chrome agent-browser open https://example.com
+agent-browser doctor                   # includes Patchright/backend checks
+agent-browser doctor --offline --quick
+```
+
+### Install or refresh Patchright
+
+For fresh remote hosts, sandboxes, and CI environments, install the default
+backend once:
 
 ```bash
 agent-browser install
 ```
 
-Then use the normal command surface:
+That installs the Patchright npm package pinned by this `agent-browser` release
+and downloads Patchright's Chromium artifacts. On Linux, add system packages
+when needed:
 
 ```bash
-agent-browser --headed open https://example.com
-agent-browser --profile ~/.agent-browser/profiles/dev open https://example.com
+agent-browser install --with-deps
 ```
 
-Use the built-in Chrome CDP launcher when a site behaves better on that lane:
+After upgrading `agent-browser`, run `agent-browser install` again to refresh
+the backend to the Patchright version pinned by the new release.
+
+### Switch backend per command
+
+Use Patchright explicitly:
+
+```bash
+agent-browser --backend patchright open https://example.com
+```
+
+Use the upstream-style built-in Chrome launcher when a site behaves better on
+that lane or when you want to avoid Node/Patchright at runtime:
 
 ```bash
 agent-browser install chrome
@@ -943,14 +1002,74 @@ agent-browser --backend chrome open https://example.com
 AGENT_BROWSER_BACKEND=chrome agent-browser open https://example.com
 ```
 
-Patchright is used only to launch the local Chrome-compatible browser and expose
-CDP on localhost. It does not solve CAPTCHA, Turnstile, or other human
-verification pages; preserve those pages for human handoff.
+For a durable default, use config:
+
+```json
+{
+  "backend": "chrome"
+}
+```
+
+Put that in `~/.agent-browser/config.json` for your user default or
+`./agent-browser.json` for a project default. Command-line flags override env
+vars, env vars override config, project config overrides user config, and a
+missing auto-discovered config file is ignored.
+
+### Diagnose backend state
+
+`doctor` is extended in this fork:
+
+```bash
+agent-browser doctor
+agent-browser doctor --offline --quick
+agent-browser doctor --fix
+agent-browser doctor --json
+```
+
+It reports:
+
+- installed Patchright backend path and installed Patchright npm version;
+- Patchright release pin embedded in the current binary;
+- npm latest Patchright version when network checks are enabled;
+- Chrome/Chrome for Testing availability;
+- stale daemons and version-mismatched sessions;
+- config files, encryption key, provider env, network reachability, and a live
+  launch test unless `--quick` is used.
+
+If doctor warns that the installed Patchright backend differs from the release
+pin, run:
+
+```bash
+agent-browser install
+```
+
+### What Patchright helps and does not help
+
+Patchright is not CAPTCHA solving, Turnstile solving, decaptcha, proxy
+rotation, or a guarantee of access. It still cannot pass pages that require a
+human action or a third-party solver, including the public Turnstile demo at
+`https://nopecha.com/captcha/turnstile`.
+
+What it does provide is a stronger local development browser lane than vanilla
+headless Chrome in many real-world challenge environments. In practice it has
+performed better than ordinary automation-flavored browsers on many Cloudflare
+and AWS WAF-style interstitials, especially when used headed with a persistent
+profile. If a challenge remains, preserve the page, screenshot/text, and
+network evidence for human handoff instead of trying to bypass it in code.
+
+### Supported launch options
 
 The default Patchright backend honors `--proxy`, `--proxy-bypass`,
 `--user-agent`, `--ignore-https-errors`, `--download-path`, and custom launch
 args. Remote-debugging address and port args are reserved by agent-browser and
 are forced to localhost.
+
+Patchright is only valid with the Chrome engine:
+
+```bash
+agent-browser --engine chrome --backend patchright open https://example.com
+agent-browser --engine lightpanda open https://example.com      # separate engine, no Patchright
+```
 
 ## Observability Dashboard
 
@@ -1019,6 +1138,7 @@ Create an `agent-browser.json` file to set persistent defaults instead of repeat
 ```json
 {
   "headed": true,
+  "backend": "chrome",
   "proxy": "http://localhost:8080",
   "profile": "./browser-data",
   "userAgent": "my-agent/1.0",
@@ -1041,7 +1161,12 @@ agent-browser --config ./ci-config.json open example.com
 AGENT_BROWSER_CONFIG=./ci-config.json agent-browser open example.com
 ```
 
-All options from the table above can be set in the config file using camelCase keys (e.g., `--executable-path` becomes `"executablePath"`, `--proxy-bypass` becomes `"proxyBypass"`). Plugins are configured with the `"plugins"` array shown above. Unknown keys are ignored for forward compatibility.
+All options from the table above can be set in the config file using camelCase
+keys (e.g., `--executable-path` becomes `"executablePath"`, `--proxy-bypass`
+becomes `"proxyBypass"`). Use `"backend": "chrome"` if you want the original
+built-in Chrome launcher as your default instead of this fork's Patchright
+backend. Plugins are configured with the `"plugins"` array shown above. Unknown
+keys are ignored for forward compatibility.
 
 A [JSON Schema](agent-browser.schema.json) is available for IDE autocomplete and validation. Add a `$schema` key to your config file to enable it:
 
@@ -1097,9 +1222,7 @@ agent-browser get text @e1                # Get heading text
 agent-browser hover @e4                   # Hover the link
 ```
 
-When a ref click is blocked by an overlay, the error includes the covering
-element, such as `covered by <div#consent-banner>`. Click the banner or dialog
-control first, then run `snapshot` again before reusing refs.
+When a ref click is blocked by an overlay, the error includes the covering element, such as `covered by <div#consent-banner>`. Click the banner or dialog control first, then run `snapshot` again before reusing refs.
 
 **Why use refs?**
 
@@ -1245,15 +1368,17 @@ AGENT_BROWSER_EXECUTABLE_PATH=/path/to/chromium agent-browser open example.com
 Run agent-browser + Chrome in an ephemeral Vercel Sandbox microVM. No external server needed:
 
 ```typescript
-import { Sandbox } from "@vercel/sandbox";
+import { runAgentBrowserCommand, withAgentBrowserSandbox } from "@agent-browser/sandbox/vercel";
 
-const sandbox = await Sandbox.create({ runtime: "node24" });
-await sandbox.runCommand("agent-browser", ["open", "https://example.com"]);
-const result = await sandbox.runCommand("agent-browser", ["screenshot", "--json"]);
-await sandbox.stop();
+const result = await withAgentBrowserSandbox(async (sandbox) => {
+  await runAgentBrowserCommand(sandbox, ["open", "https://example.com"]);
+  return runAgentBrowserCommand(sandbox, ["screenshot"]);
+});
 ```
 
-See the [environments example](examples/environments/) for a working demo with a UI and deploy-to-Vercel button.
+Install `@agent-browser/sandbox` and `@vercel/sandbox` in the consuming app. See the [sandbox helper example](examples/sandbox/) for minimal Eve and Vercel Sandbox usage, or the [environments example](examples/environments/) for a full UI demo with a deploy-to-Vercel button.
+
+Fresh Vercel and Eve sandboxes install Chromium system dependencies by default. Pass `installSystemDependencies: false` only when your sandbox image already includes those libraries.
 
 ### Serverless (AWS Lambda)
 
