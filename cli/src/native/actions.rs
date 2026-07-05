@@ -198,12 +198,12 @@ fn launch_hash(
     enable_features: &[String],
     init_script_paths: &[String],
     engine: Option<&str>,
-    connection_kind: &str,
-    connection_target: Option<&str>,
+    connection: (&str, Option<&str>),
 ) -> u64 {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
+    let (connection_kind, connection_target) = connection;
     let mut h = DefaultHasher::new();
     engine.hash(&mut h);
     backend.hash(&mut h);
@@ -2113,8 +2113,7 @@ async fn auto_launch(
             &enable_features,
             &init_script_paths,
             engine.as_deref(),
-            "cdp-url",
-            Some(cdp.as_str()),
+            ("cdp-url", Some(cdp.as_str())),
         );
         state.reset_input_state();
         state.browser = Some(mgr);
@@ -2137,8 +2136,7 @@ async fn auto_launch(
             &enable_features,
             &init_script_paths,
             engine.as_deref(),
-            "auto-connect",
-            None,
+            ("auto-connect", None),
         );
         state.reset_input_state();
         state.browser = Some(connect_auto_with_fresh_tab().await?);
@@ -2183,8 +2181,7 @@ async fn auto_launch(
                         &enable_features,
                         &init_script_paths,
                         engine.as_deref(),
-                        "provider",
-                        Some(p.as_str()),
+                        ("provider", Some(p.as_str())),
                     );
                     state.reset_input_state();
                     state.browser = Some(mgr);
@@ -2219,8 +2216,7 @@ async fn auto_launch(
         &enable_features,
         &init_script_paths,
         engine.as_deref(),
-        "local",
-        None,
+        ("local", None),
     );
     let mgr = BrowserManager::launch(options, engine.as_deref(), backend.as_deref()).await?;
     state.reset_input_state();
@@ -2767,8 +2763,7 @@ async fn handle_launch(cmd: &Value, state: &mut DaemonState) -> Result<Value, St
         &enable_features,
         &init_script_paths,
         engine.as_deref(),
-        connection_kind,
-        connection_target.as_deref(),
+        (connection_kind, connection_target.as_deref()),
     );
 
     // Hash comparison and fast process-exit check are evaluated before the
@@ -10511,8 +10506,7 @@ printf '%s' '{"protocol":"agent-browser.plugin.v1","success":true,"data":{}}'
                 &[],
                 &[],
                 Some("chrome"),
-                "local",
-                None
+                ("local", None)
             ),
             launch_hash(
                 &opts,
@@ -10521,8 +10515,7 @@ printf '%s' '{"protocol":"agent-browser.plugin.v1","success":true,"data":{}}'
                 &[],
                 &[],
                 Some("chrome"),
-                "local",
-                None
+                ("local", None)
             )
         );
     }
@@ -10539,8 +10532,7 @@ printf '%s' '{"protocol":"agent-browser.plugin.v1","success":true,"data":{}}'
                 &[],
                 &[],
                 Some("chrome"),
-                "local",
-                None
+                ("local", None)
             ),
             launch_hash(
                 &opts,
@@ -10549,8 +10541,7 @@ printf '%s' '{"protocol":"agent-browser.plugin.v1","success":true,"data":{}}'
                 &[],
                 &[],
                 Some("lightpanda"),
-                "local",
-                None
+                ("local", None)
             )
         );
         assert_ne!(
@@ -10561,8 +10552,7 @@ printf '%s' '{"protocol":"agent-browser.plugin.v1","success":true,"data":{}}'
                 &[],
                 &[],
                 Some("chrome"),
-                "local",
-                None
+                ("local", None)
             ),
             launch_hash(
                 &opts,
@@ -10571,8 +10561,7 @@ printf '%s' '{"protocol":"agent-browser.plugin.v1","success":true,"data":{}}'
                 &[],
                 &[],
                 Some("chrome"),
-                "local",
-                None
+                ("local", None)
             )
         );
         assert_ne!(
@@ -10583,8 +10572,7 @@ printf '%s' '{"protocol":"agent-browser.plugin.v1","success":true,"data":{}}'
                 &[],
                 &[],
                 Some("chrome"),
-                "cdp-url",
-                Some("ws://one")
+                ("cdp-url", Some("ws://one"))
             ),
             launch_hash(
                 &opts,
@@ -10593,8 +10581,7 @@ printf '%s' '{"protocol":"agent-browser.plugin.v1","success":true,"data":{}}'
                 &[],
                 &[],
                 Some("chrome"),
-                "cdp-url",
-                Some("ws://two")
+                ("cdp-url", Some("ws://two"))
             )
         );
         assert_ne!(
@@ -10605,8 +10592,7 @@ printf '%s' '{"protocol":"agent-browser.plugin.v1","success":true,"data":{}}'
                 &[],
                 &[],
                 Some("chrome"),
-                "provider",
-                Some("browserbase")
+                ("provider", Some("browserbase"))
             ),
             launch_hash(
                 &opts,
@@ -10615,8 +10601,7 @@ printf '%s' '{"protocol":"agent-browser.plugin.v1","success":true,"data":{}}'
                 &[],
                 &[],
                 Some("chrome"),
-                "provider",
-                Some("kernel")
+                ("provider", Some("kernel"))
             )
         );
     }
