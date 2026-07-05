@@ -982,6 +982,8 @@ fn main() {
             quick: args.iter().any(|a| a == "--quick"),
             fix: args.iter().any(|a| a == "--fix"),
             json: flags.json,
+            backend: flags.backend.clone(),
+            engine: flags.engine.clone(),
         };
         exit(doctor::run_doctor(opts));
     }
