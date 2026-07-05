@@ -3211,7 +3211,9 @@ Options:
 
 The skills command serves bundled skill content that always matches the
 installed CLI version. Agents should use this to get current instructions
-rather than relying on cached copies.
+rather than relying on cached copies. Binary-only installs hydrate bundled
+skills into ~/.agent-browser/skills/<version> when no package directory is
+available.
 
 Examples:
   agent-browser skills

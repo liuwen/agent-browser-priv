@@ -1,10 +1,20 @@
 use serde_json::json;
 use std::env;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::io;
+use std::path::{Component, Path, PathBuf};
 use std::process::exit;
 
 use crate::color;
+use rust_embed::Embed;
+
+#[derive(Embed)]
+#[folder = "../skills/"]
+struct EmbeddedSkills;
+
+#[derive(Embed)]
+#[folder = "../skill-data/"]
+struct EmbeddedSkillData;
 
 struct SkillInfo {
     name: String,
@@ -28,6 +38,14 @@ struct SkillInfo {
 ///
 /// Both are shipped in the npm package and searched by `discover_skills`.
 const SKILL_DIRS: &[&str] = &["skills", "skill-data"];
+
+fn skill_dirs_under(root: &Path) -> Vec<PathBuf> {
+    SKILL_DIRS
+        .iter()
+        .map(|d| root.join(d))
+        .filter(|p| p.is_dir())
+        .collect()
+}
 
 /// Locate the package root that contains the skill directories.
 ///
@@ -63,6 +81,62 @@ fn find_package_root() -> Option<PathBuf> {
     None
 }
 
+fn embedded_skills_cache_root() -> Option<PathBuf> {
+    dirs::home_dir()
+        .map(|home| home.join(".agent-browser").join("skills").join(env!("CARGO_PKG_VERSION")))
+}
+
+fn embedded_file_dest(root: &Path, top_level: &str, rel_path: &str) -> Option<PathBuf> {
+    let mut dest = root.join(top_level);
+    for component in Path::new(rel_path).components() {
+        match component {
+            Component::Normal(part) => dest.push(part),
+            _ => return None,
+        }
+    }
+    Some(dest)
+}
+
+fn hydrate_embedded_tree<E: Embed>(root: &Path, top_level: &str) -> io::Result<()> {
+    for rel in E::iter() {
+        let rel = rel.as_ref();
+        let Some(dest) = embedded_file_dest(root, top_level, rel) else {
+            continue;
+        };
+        let Some(file) = E::get(rel) else {
+            continue;
+        };
+        if let Some(parent) = dest.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let data = file.data.as_ref();
+        let needs_write = fs::read(&dest)
+            .map(|existing| existing != data)
+            .unwrap_or(true);
+        if needs_write {
+            fs::write(&dest, data)?;
+        }
+    }
+    Ok(())
+}
+
+fn hydrate_embedded_skills(root: &Path) -> io::Result<()> {
+    hydrate_embedded_tree::<EmbeddedSkills>(root, "skills")?;
+    hydrate_embedded_tree::<EmbeddedSkillData>(root, "skill-data")?;
+    fs::write(root.join(".version"), env!("CARGO_PKG_VERSION"))?;
+    Ok(())
+}
+
+fn embedded_skill_dirs() -> Vec<PathBuf> {
+    let Some(root) = embedded_skills_cache_root() else {
+        return vec![];
+    };
+    if hydrate_embedded_skills(&root).is_err() {
+        return vec![];
+    }
+    skill_dirs_under(&root)
+}
+
 /// Collect all skill directories to search, respecting the env var override.
 fn find_skills_dirs() -> Vec<PathBuf> {
     // Env var override: single directory, used as-is
@@ -73,15 +147,14 @@ fn find_skills_dirs() -> Vec<PathBuf> {
         }
     }
 
-    let Some(root) = find_package_root() else {
-        return vec![];
-    };
+    if let Some(root) = find_package_root() {
+        let dirs = skill_dirs_under(&root);
+        if !dirs.is_empty() {
+            return dirs;
+        }
+    }
 
-    SKILL_DIRS
-        .iter()
-        .map(|d| root.join(d))
-        .filter(|p| p.is_dir())
-        .collect()
+    embedded_skill_dirs()
 }
 
 /// Parse YAML frontmatter from a SKILL.md file. Returns (name, description, hidden).
@@ -433,13 +506,13 @@ pub fn run_skills(args: &[String], json_mode: bool) {
                 "{}",
                 serde_json::to_string(&json!({
                     "success": false,
-                    "error": "Skills directory not found. Set AGENT_BROWSER_SKILLS_DIR or reinstall via npm.",
+                    "error": "Skills directory not found and bundled skills could not be hydrated. Set AGENT_BROWSER_SKILLS_DIR or reinstall agent-browser.",
                 }))
                 .unwrap_or_default()
             );
         } else {
             eprintln!(
-                "{} Skills directory not found. Set AGENT_BROWSER_SKILLS_DIR or reinstall via npm.",
+                "{} Skills directory not found and bundled skills could not be hydrated. Set AGENT_BROWSER_SKILLS_DIR or reinstall agent-browser.",
                 color::error_indicator()
             );
         }
@@ -618,5 +691,24 @@ mod tests {
         assert_eq!(files[0].0, "references/auth.md");
         assert_eq!(files[1].0, "references/commands.md");
         assert_eq!(files[2].0, "templates/example.sh");
+    }
+
+    #[test]
+    fn test_hydrate_embedded_skills_writes_discoverable_dirs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("embedded");
+
+        hydrate_embedded_skills(&root).unwrap();
+
+        let dirs = skill_dirs_under(&root);
+        assert_eq!(dirs.len(), 2);
+        assert!(root.join("skills/agent-browser/SKILL.md").is_file());
+        assert!(root.join("skill-data/core/SKILL.md").is_file());
+        assert!(root.join("skill-data/core/references/commands.md").is_file());
+
+        let skills = discover_skills(&dirs);
+        assert!(skills.iter().any(|s| s.name == "core"));
+        assert!(skills.iter().any(|s| s.name == "vercel-sandbox"));
+        assert!(skills.iter().any(|s| s.name == "agent-browser" && s.hidden));
     }
 }
