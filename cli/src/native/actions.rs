@@ -2758,7 +2758,11 @@ async fn handle_launch(cmd: &Value, state: &mut DaemonState) -> Result<Value, St
         launch_connection_identity(cdp_url, cdp_port, auto_connect, provider_name);
     let new_hash = launch_hash(
         &launch_options,
-        if local_launch { backend.as_deref() } else { None },
+        if local_launch {
+            backend.as_deref()
+        } else {
+            None
+        },
         &state.plugin_init_scripts,
         &enable_features,
         &init_script_paths,
@@ -2960,9 +2964,8 @@ async fn handle_launch(cmd: &Value, state: &mut DaemonState) -> Result<Value, St
     write_engine_file(&state.session_id, &state.engine);
     write_extensions_file_from_paths(&state.session_id, launch_options.extensions.as_deref());
     state.reset_input_state();
-    state.browser = Some(
-        BrowserManager::launch(launch_options, engine.as_deref(), backend.as_deref()).await?,
-    );
+    state.browser =
+        Some(BrowserManager::launch(launch_options, engine.as_deref(), backend.as_deref()).await?);
     state.launch_hash = Some(new_hash);
     state.subscribe_to_browser_events();
     state.start_fetch_handler();
