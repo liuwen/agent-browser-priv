@@ -82,8 +82,11 @@ fn find_package_root() -> Option<PathBuf> {
 }
 
 fn embedded_skills_cache_root() -> Option<PathBuf> {
-    dirs::home_dir()
-        .map(|home| home.join(".agent-browser").join("skills").join(env!("CARGO_PKG_VERSION")))
+    dirs::home_dir().map(|home| {
+        home.join(".agent-browser")
+            .join("skills")
+            .join(env!("CARGO_PKG_VERSION"))
+    })
 }
 
 fn embedded_file_dest(root: &Path, top_level: &str, rel_path: &str) -> Option<PathBuf> {
@@ -704,7 +707,9 @@ mod tests {
         assert_eq!(dirs.len(), 2);
         assert!(root.join("skills/agent-browser/SKILL.md").is_file());
         assert!(root.join("skill-data/core/SKILL.md").is_file());
-        assert!(root.join("skill-data/core/references/commands.md").is_file());
+        assert!(root
+            .join("skill-data/core/references/commands.md")
+            .is_file());
 
         let skills = discover_skills(&dirs);
         assert!(skills.iter().any(|s| s.name == "core"));
