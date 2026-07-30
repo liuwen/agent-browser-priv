@@ -134,6 +134,8 @@ Credential plugins receive `credential.resolve` and return username, password, a
 
 agent-browser keeps browser automation, redaction-sensitive output, and policy enforcement in core. Credential plugin secrets do not appear in command arguments, dashboard events, or normal command output.
 
+Local browser providers may need a process that outlives one plugin invocation. The optional [Patchright provider](/providers/patchright) uses private runtime files and a nonce-authenticated loopback control endpoint to close its detached supervisor. Its cleanup token is opaque to agent-browser and the nonce is not included in public browser metadata.
+
 Gate plugin access with capability actions:
 
 ```bash

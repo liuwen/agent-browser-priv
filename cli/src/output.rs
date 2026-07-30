@@ -3450,6 +3450,7 @@ Example config:
 
 Examples:
   agent-browser plugin add agent-browser-plugin-captcha
+  agent-browser plugin add agent-browser-plugin-patchright --global
   agent-browser plugin add org/agent-browser-plugin-cloud-browser
   agent-browser plugin add @company/agent-browser-plugin-vault --name vault
   agent-browser plugin list
@@ -3457,6 +3458,7 @@ Examples:
   agent-browser plugin run captcha captcha.solve --payload '{{"siteKey":"...","url":"https://example.com"}}'
   agent-browser auth login my-app --credential-provider vault --item "My App"
   agent-browser --provider cloud-browser open https://example.com
+  agent-browser --provider patchright open https://example.com
 "##
         }
 

@@ -60,6 +60,7 @@ export const navigation: NavSection[] = [
       { name: "Browserbase", href: "/providers/browserbase" },
       { name: "Browserless", href: "/providers/browserless" },
       { name: "Kernel", href: "/providers/kernel" },
+      { name: "Patchright", href: "/providers/patchright" },
     ],
   },
   {

@@ -319,6 +319,16 @@ Other capabilities use the same protocol:
 - `launch.mutate`: append local launch args, extensions, or init scripts
 - `command.run`: `agent-browser plugin run <name> <type> --payload <json>`
 
+Install and select the optional local Patchright provider without changing the normal Chrome default:
+
+```bash
+agent-browser plugin add agent-browser-plugin-patchright --global
+npx agent-browser-plugin-patchright install chrome
+agent-browser --provider patchright --headed open https://example.com
+```
+
+The provider uses Patchright for browser launch and agent-browser's raw CDP client for subsequent automation. It is not equivalent to running automation through Patchright's native driver.
+
 `plugin run` is for `command.run` and custom capabilities. Core capabilities and protocol request types use their dedicated command paths.
 
 ## State Management

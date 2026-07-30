@@ -220,10 +220,15 @@ Plugins can also provide browser providers, launch mutators such as stealth setu
 
 ```bash
 agent-browser --provider cloud-browser open https://example.com
+agent-browser plugin add agent-browser-plugin-patchright --global
+npx agent-browser-plugin-patchright install chrome
+agent-browser --provider patchright --headed open https://example.com
 agent-browser plugin run captcha captcha.solve --payload '{"siteKey":"...","url":"https://example.com"}'
 ```
 
 `plugin run` is for `command.run` and custom capabilities. Core capabilities and protocol request types use their dedicated command paths.
+
+The Patchright provider launches Chrome through Patchright but agent-browser still performs automation through its raw CDP client. Use native Patchright directly when its driver-level CDP behavior is required.
 
 ### Persist session across runs
 

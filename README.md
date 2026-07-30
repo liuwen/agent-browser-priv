@@ -835,6 +835,16 @@ Use a browser provider plugin:
 agent-browser --provider cloud-browser open https://example.com
 ```
 
+Use the independently versioned Patchright provider when you want agent-browser to drive a Patchright-launched local Chrome session:
+
+```bash
+agent-browser plugin add agent-browser-plugin-patchright --global
+npx agent-browser-plugin-patchright install chrome
+agent-browser --provider patchright --headed open https://example.com
+```
+
+Patchright launches the browser, then agent-browser drives it through its own raw CDP client. Patchright's launch argument changes apply, but driver-level protections such as avoiding `Runtime.enable` do not carry over to agent-browser's CDP connection. Other providers and the normal local Chrome default remain unchanged.
+
 Use a launch mutator plugin for stealth or local launch customization. The plugin can append Chrome args, extensions, and init scripts before the browser starts:
 
 ```bash
