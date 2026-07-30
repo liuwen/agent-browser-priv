@@ -119,6 +119,31 @@ jobs:
       - name: Test Eve package
         run: pnpm --filter @agent-browser/eve test
 
+  patchright-provider:
+    name: Patchright Provider Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Patchright provider package
+        run: pnpm --filter agent-browser-plugin-patchright test
+
+      - name: Verify Patchright provider package contents
+        run: pnpm --filter agent-browser-plugin-patchright exec pnpm pack --dry-run
+
   rust-cross:
     name: Rust (${{ matrix.os }} - ${{ matrix.target }})
     if: github.event_name != 'pull_request'
