@@ -49,11 +49,11 @@ jobs:
           NPM_VERSION=$(npm view agent-browser version 2>/dev/null || echo "0.0.0")
           SANDBOX_NPM_VERSION=$(npm view @agent-browser/sandbox version 2>/dev/null || echo "0.0.0")
           EVE_NPM_VERSION=$(npm view @agent-browser/eve version 2>/dev/null || echo "0.0.0")
-          PATCHRIGHT_NPM_VERSION=$(npm view agent-browser-plugin-patchright version 2>/dev/null || echo "0.0.0")
+          PATCHRIGHT_NPM_VERSION=$(npm view agent-browser-plugin-patchright version 2>/dev/null || true)
           echo "npm version: $NPM_VERSION"
           echo "@agent-browser/sandbox npm version: $SANDBOX_NPM_VERSION"
           echo "@agent-browser/eve npm version: $EVE_NPM_VERSION"
-          echo "agent-browser-plugin-patchright npm version: $PATCHRIGHT_NPM_VERSION"
+          echo "agent-browser-plugin-patchright npm version: ${PATCHRIGHT_NPM_VERSION:-not published}"
 
           if [ "$LOCAL_VERSION" != "$NPM_VERSION" ]; then
             echo "Version changed: $NPM_VERSION -> $LOCAL_VERSION"
@@ -88,7 +88,10 @@ jobs:
             echo "Eve package version unchanged on npm, skipping publish"
             echo "should_publish_eve=false" >> "$GITHUB_OUTPUT"
           fi
-          if [ "$PATCHRIGHT_VERSION" != "$PATCHRIGHT_NPM_VERSION" ]; then
+          if [ -z "$PATCHRIGHT_NPM_VERSION" ]; then
+            echo "Patchright provider is not on npm; an initial manual publish is required before automated updates"
+            echo "should_publish_patchright=false" >> "$GITHUB_OUTPUT"
+          elif [ "$PATCHRIGHT_VERSION" != "$PATCHRIGHT_NPM_VERSION" ]; then
             echo "Patchright provider package version changed: $PATCHRIGHT_NPM_VERSION -> $PATCHRIGHT_VERSION"
             echo "should_publish_patchright=true" >> "$GITHUB_OUTPUT"
           else
