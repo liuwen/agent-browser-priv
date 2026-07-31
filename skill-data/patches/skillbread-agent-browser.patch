@@ -1,0 +1,267 @@
+diff --git a/skills/agent-browser/SKILL.md b/skills/agent-browser/SKILL.md
+index a80880b..4ef965b 100644
+--- a/skills/agent-browser/SKILL.md
++++ b/skills/agent-browser/SKILL.md
+@@ -1,10 +1,10 @@
+ ---
+-name: core
+-description: Core agent-browser usage guide. Read this before running any agent-browser commands. Covers the snapshot-and-ref workflow, navigating pages, interacting with elements (click, fill, type, select), extracting text and data, taking screenshots, managing tabs, handling forms and auth, waiting for content, running multiple browser sessions in parallel, and troubleshooting common failures. Use when the user asks to interact with a website, fill a form, click something, extract data, take a screenshot, log into a site, test a web app, or automate any browser task.
++name: agent-browser
++description: Browser automation CLI for AI agents. Use when the user needs to interact with websites, including navigating pages, filling forms, clicking buttons, taking screenshots, extracting data, testing web apps, logging in, comparing page states, inspecting network or console activity, or automating browsers across local, iOS, and cloud providers.
+ allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*)
+ ---
+ 
+-# agent-browser core
++# agent-browser
+ 
+ Fast browser automation CLI for AI agents. Chrome/Chromium via CDP, no Playwright or Puppeteer dependency. Accessibility-tree snapshots with compact `@eN` refs let agents interact with pages in ~200-400 tokens instead of parsing raw HTML.
+ 
+@@ -25,7 +25,7 @@ Refs (`@e1`, `@e2`, ...) are assigned fresh on every snapshot. They become **sta
+ 
+ ```bash
+ # Install once
+-npm i -g agent-browser && agent-browser install
++pnpm add -g agent-browser && agent-browser install
+ 
+ # Linux hosts can install required browser libraries too
+ agent-browser install --with-deps
+@@ -225,6 +225,22 @@ agent-browser plugin run captcha captcha.solve --payload '{"siteKey":"...","url"
+ 
+ `plugin run` is for `command.run` and custom capabilities. Core capabilities and protocol request types use their dedicated command paths.
+ 
++## Private Patchright provider on this workstation
++
++The official pnpm-installed `agent-browser` is the default CLI. A private provider named `patchright` is registered from `/Users/liuwen/work/agent-browser-priv/packages/@agent-browser/plugin-patchright`; it is not a separate CLI fork and does not need to be published to npm.
++
++Use ordinary `agent-browser` first. Select Patchright explicitly for detection-sensitive browser discovery or when vanilla Chrome behaves poorly:
++
++```bash
++agent-browser --provider patchright --headed open https://example.com
++agent-browser snapshot -i
++agent-browser close
++```
++
++Patchright launches the browser, while agent-browser still drives it with the Rust raw-CDP client. Patchright launch behavior applies, but driver-level stealth such as avoiding `Runtime.enable` does not survive this boundary. Use native Patchright in a sandbox when complete Patchright driver behavior matters.
++
++Read [references/patchright-provider.md](references/patchright-provider.md) before installing, rebuilding, diagnosing, or changing the provider. Read [references/upgrade-guide.md](references/upgrade-guide.md) when upgrading the official CLI, provider checkout, or this Skillbread skill.
++
+ ### Persist session across runs
+ 
+ ```bash
+@@ -501,4 +517,6 @@ That pulls in:
+ - `references/streaming.md` covers live viewport streaming, remote input, per-client frame rate, and the encoding vars that set bandwidth cost
+ - `references/proxy-support.md` — proxy configuration
+ - `references/webgpu.md` — screenshots/video of WebGPU pages (three.js, Babylon.js), Linux/CI setup
++- `references/patchright-provider.md` — this workstation's private Patchright provider
++- `references/upgrade-guide.md` — official CLI, provider, and Skillbread upgrade procedure
+ - `templates/*` — starter shell scripts for auth, capture, form automation
+diff --git a/skills/agent-browser/references/patchright-provider.md b/skills/agent-browser/references/patchright-provider.md
+new file mode 100644
+index 0000000..8ec953c
+--- /dev/null
++++ b/skills/agent-browser/references/patchright-provider.md
+@@ -0,0 +1,101 @@
++# Private Patchright provider
++
++This workstation uses the official `agent-browser` package installed globally with pnpm. Patchright is an independently versioned, private browser provider loaded from the local `agent-browser-priv` checkout. It does not replace the CLI, alter the normal Chrome default, or require npm publication.
++
++## Current registration
++
++The provider is registered globally in `~/.agent-browser/config.json` with this effective configuration:
++
++```text
++Name: patchright
++Command: npx
++Args: -y file:/Users/liuwen/work/agent-browser-priv/packages/@agent-browser/plugin-patchright
++Capabilities: browser.provider
++```
++
++Inspect it without exposing unrelated configuration:
++
++```bash
++agent-browser plugin show patchright
++```
++
++The `file:` registration resolves the package from the working tree on every provider launch. Keep that checkout on a branch containing `packages/@agent-browser/plugin-patchright`, and rebuild its `dist/` output after pulling provider changes. Normal updates do not require re-registration.
++
++## Use Patchright explicitly
++
++Prefer the standard Chrome path for ordinary work. Use Patchright when detection-sensitive discovery benefits from its browser launch behavior:
++
++```bash
++agent-browser --provider patchright --headed open https://example.com
++agent-browser snapshot -i
++agent-browser close
++```
++
++Named sessions must repeat the provider only on the command that launches the browser. Always close the exact session when finished:
++
++```bash
++SESSION="$(agent-browser session id --scope worktree --prefix patchright-discovery)"
++agent-browser --session "$SESSION" --provider patchright --headed open https://example.com
++agent-browser --session "$SESSION" snapshot -i
++agent-browser --session "$SESSION" close
++```
++
++The provider uses an existing Google Chrome installation by default. To use Patchright-managed Chromium instead:
++
++```bash
++cd /Users/liuwen/work/agent-browser-priv
++node packages/@agent-browser/plugin-patchright/dist/index.js \
++  install chromium
++
++AGENT_BROWSER_PATCHRIGHT_CHANNEL=chromium \
++  agent-browser --provider patchright open https://example.com
++```
++
++## Install or re-register
++
++From the private repository root:
++
++```bash
++pnpm install --frozen-lockfile
++pnpm --filter agent-browser-plugin-patchright build
++agent-browser plugin add \
++  "file:$PWD/packages/@agent-browser/plugin-patchright" \
++  --global
++```
++
++The package is marked `private: true`. Keep using the local `file:` registration instead of publishing it to npm.
++
++## Configuration
++
++- `AGENT_BROWSER_PATCHRIGHT_CHANNEL` selects `chrome` or Patchright-managed `chromium`; the default is `chrome`.
++- `AGENT_BROWSER_PATCHRIGHT_RUNTIME_DIR` overrides the private runtime directory; the default is `~/.agent-browser/providers/patchright`.
++- `AGENT_BROWSER_PATCHRIGHT_MAX_LIFETIME_MS` controls forced instance expiry; accepted values range from one minute through seven days and the default is one day.
++
++Each launch creates a fresh temporary profile. The current provider contract does not support extensions or existing profiles.
++
++## Architecture boundary
++
++The provider launches a persistent Chromium context through Patchright, starts a detached supervisor, and returns a browser-level loopback CDP endpoint. Agent-browser then uses its Rust raw-CDP client for snapshots and interaction.
++
++This preserves Patchright's launch arguments and browser selection, but not every native Patchright stealth property. In particular, Patchright's driver-level avoidance of `Runtime.enable` does not apply to agent-browser's CDP client. This provider is useful for agent-browser-driven discovery; it is not equivalent to native Patchright and is not a CAPTCHA or access guarantee.
++
++Use native Patchright directly in a sandbox when the target requires full Patchright driver behavior. Consider other agent-browser providers when a remote browser, managed session, proxy fleet, or provider-specific anti-detection stack is a better fit.
++
++## Cleanup and diagnosis
++
++First close the exact agent-browser session. To request cleanup of all reachable provider-owned instances:
++
++```bash
++cd /Users/liuwen/work/agent-browser-priv
++node packages/@agent-browser/plugin-patchright/dist/index.js cleanup
++```
++
++Inspect runtime residue only after sessions are closed:
++
++```bash
++find ~/.agent-browser/providers/patchright -type f -print 2>/dev/null
++ps ax -o pid=,command= |
++  rg '[a]gent-browser-plugin-patchright.*__supervise' || true
++```
++
++Do not delete a profile while its supervisor may still be active. The cleanup command intentionally retains ownership records when it cannot authenticate or reach a supervisor.
+diff --git a/skills/agent-browser/references/upgrade-guide.md b/skills/agent-browser/references/upgrade-guide.md
+new file mode 100644
+index 0000000..9673bec
+--- /dev/null
++++ b/skills/agent-browser/references/upgrade-guide.md
+@@ -0,0 +1,97 @@
++# Upgrade guide
++
++The official CLI, private provider, and Skillbread skill have separate update cycles. Upgrade and verify them in that order.
++
++## 1. Upgrade the official CLI
++
++The official npm package is installed globally through pnpm, not Homebrew and not the private fork:
++
++```bash
++pnpm update -g agent-browser
++agent-browser --version
++which -a agent-browser
++pnpm bin -g
++```
++
++To pin a known release:
++
++```bash
++pnpm add -g agent-browser@<version>
++```
++
++Confirm the first `agent-browser` on `PATH` is under pnpm's global bin directory. If Homebrew appears first, remove the stale Homebrew formula or fix `PATH` before continuing.
++
++## 2. Update and rebuild the private provider
++
++The global plugin configuration points to the local checkout, so keep the checkout on the provider branch and rebuild after pulling changes:
++
++```bash
++cd /Users/liuwen/work/agent-browser-priv
++git switch refactor/patchright-provider
++git pull --ff-only
++pnpm install --frozen-lockfile
++pnpm --filter agent-browser-plugin-patchright build
++pnpm --filter agent-browser-plugin-patchright test
++```
++
++No re-registration is normally needed because `~/.agent-browser/config.json` uses a local `file:` reference. Re-register only if the checkout path or plugin entry changes:
++
++```bash
++agent-browser plugin add \
++  "file:$PWD/packages/@agent-browser/plugin-patchright" \
++  --global
++```
++
++## 3. Run a provider smoke test
++
++```bash
++agent-browser plugin show patchright
++
++agent-browser --session patchright-upgrade-smoke \
++  --provider patchright open https://example.com
++agent-browser --session patchright-upgrade-smoke get title
++agent-browser --session patchright-upgrade-smoke snapshot -i
++agent-browser --session patchright-upgrade-smoke close
++```
++
++After closing the session, check for unexpected residue:
++
++```bash
++find ~/.agent-browser/providers/patchright -type f -print 2>/dev/null
++ps ax -o pid=,command= |
++  rg '[a]gent-browser-plugin-patchright.*__supervise' || true
++```
++
++## 4. Refresh the Skillbread skill from official upstream
++
++Skillbread is the source of truth for the user-level skill:
++
++```text
++/Users/liuwen/work/foundation/skillbread/skills/agent-browser
++```
++
++The installed path `~/.agents/skills/agent-browser` must remain a symlink to that directory. Never edit the installed symlink view directly.
++
++To refresh:
++
++1. Fetch the latest `vercel-labs/agent-browser` upstream and copy `skill-data/core/` into Skillbread's `skills/agent-browser/` as the new vendor baseline.
++2. Save the clean official baseline with `just vendor-snapshot agent-browser` before applying local changes.
++3. Reapply `skill-data/patches/skillbread-agent-browser.patch` from the private repository.
++4. Resolve expected upstream drift, keeping the private provider section visibly separate from official guidance.
++5. Update the snapshot metadata in `skills.json`.
++6. Validate and reinstall from the Skillbread root:
++
++```bash
++cd /Users/liuwen/work/foundation/skillbread
++just validate
++just doctor
++just install
++```
++
++Confirm the installed link afterward:
++
++```bash
++readlink ~/.agents/skills/agent-browser
++```
++
++The durable patch is maintained in `/Users/liuwen/work/agent-browser-priv/skill-data/patches/`. Regenerate it from the clean vendor snapshot and customized Skillbread tree whenever the official skill changes.
