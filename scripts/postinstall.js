@@ -1,14 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * Postinstall script for the agent-browser-priv npm package.
+ * Postinstall script for agent-browser
  * 
  * Downloads the platform-specific native binary if not present.
  * On global installs, patches npm's bin entry to use the native binary directly:
+ * - Windows: Overwrites .cmd/.ps1 shims
  * - Mac/Linux: Replaces symlink to point to native binary
- *
- * Windows npm binaries are temporarily disabled. The shim helpers remain below
- * for a future re-enable.
  */
 
 import { existsSync, mkdirSync, chmodSync, createWriteStream, unlinkSync, writeFileSync, symlinkSync, lstatSync } from 'fs';
@@ -33,24 +31,14 @@ function isMusl() {
   }
 }
 
-if (platform() === 'linux' && isMusl()) {
-  console.log('agent-browser-priv does not publish musl Linux binaries.');
-  console.log('Use a glibc-based Linux environment or build locally with npm run build:native.');
-  process.exit(0);
-}
-
-if (platform() === 'win32') {
-  console.log('agent-browser-priv Windows npm binaries are temporarily disabled.');
-  console.log('Use Linux x64, Linux ARM64, or macOS ARM64 for the published package.');
-  process.exit(0);
-}
-
 // Platform detection
-const osKey = platform();
-const effectiveArch = arch();
+const osKey = platform() === 'linux' && isMusl() ? 'linux-musl' : platform();
+// Windows ARM64 falls back to x64 binary (no native ARM64 build available).
+// x64 binaries run via Windows' built-in emulation on ARM64.
+const effectiveArch = platform() === 'win32' && arch() === 'arm64' ? 'x64' : arch();
 const platformKey = `${osKey}-${effectiveArch}`;
 const ext = platform() === 'win32' ? '.exe' : '';
-const binaryName = `agent-browser-priv-${platformKey}${ext}`;
+const binaryName = `agent-browser-${platformKey}${ext}`;
 const binaryPath = join(binDir, binaryName);
 
 // Package info
@@ -60,7 +48,7 @@ const packageJson = JSON.parse(
 const version = packageJson.version;
 
 // GitHub release URL
-const GITHUB_REPO = 'liuwen/agent-browser-priv';
+const GITHUB_REPO = 'vercel-labs/agent-browser';
 const DOWNLOAD_URL = `https://github.com/${GITHUB_REPO}/releases/download/v${version}/${binaryName}`;
 
 async function downloadFile(url, dest) {
@@ -144,6 +132,9 @@ async function main() {
   }
 
   console.log(`Downloading native binary for ${platformKey}...`);
+  if (platform() === 'win32' && arch() === 'arm64') {
+    console.log(`  Note: Using x64 binary on ARM64 Windows (runs via emulation)`);
+  }
   console.log(`URL: ${DOWNLOAD_URL}`);
 
   try {
@@ -208,18 +199,14 @@ function showInstallReminder() {
   if (systemChrome) {
     console.log('');
     console.log(`  ✓ System Chrome found: ${systemChrome}`);
-    console.log('    Use --backend chrome or config backend=chrome to launch it directly.');
-    console.log('');
-    console.log('  The default Patchright backend is prepared with:');
-    console.log('');
-    console.log('    agent-browser install');
+    console.log('    agent-browser will use it automatically.');
     console.log('');
     return;
   }
 
   console.log('');
-  console.log('  ⚠ No system Chrome installation detected.');
-  console.log('  To prepare the default Patchright backend, run:');
+  console.log('  ⚠ No Chrome installation detected.');
+  console.log('  If you plan to use a local browser, run:');
   console.log('');
   console.log('    agent-browser install');
   if (platform() === 'linux') {
@@ -239,7 +226,6 @@ function showInstallReminder() {
  */
 async function fixGlobalInstallBin() {
   if (platform() === 'win32') {
-    // Unreachable while Windows npm binaries are disabled; kept for future re-enable.
     await fixWindowsShims();
   } else {
     await fixUnixSymlink();
@@ -260,29 +246,27 @@ async function fixUnixSymlink() {
     return; // npm not available
   }
 
-  const symlinkPaths = [
-    join(npmBinDir, 'agent-browser'),
-    join(npmBinDir, 'agent-browser-priv'),
-  ];
+  const symlinkPath = join(npmBinDir, 'agent-browser');
 
-  let optimized = false;
-  for (const symlinkPath of symlinkPaths) {
-    try {
-      const stat = lstatSync(symlinkPath);
-      if (!stat.isSymbolicLink()) {
-        continue;
-      }
-
-      unlinkSync(symlinkPath);
-      symlinkSync(binaryPath, symlinkPath);
-      optimized = true;
-    } catch {
-      // Symlink missing during postinstall or not writable; JS wrapper still works.
+  // Check if symlink exists (indicates global install)
+  try {
+    const stat = lstatSync(symlinkPath);
+    if (!stat.isSymbolicLink()) {
+      return; // Not a symlink, don't touch it
     }
+  } catch {
+    return; // Symlink doesn't exist, not a global install
   }
 
-  if (optimized) {
-    console.log('✓ Optimized: command symlink points to native binary (zero overhead)');
+  // Replace symlink to point directly to native binary
+  try {
+    unlinkSync(symlinkPath);
+    symlinkSync(binaryPath, symlinkPath);
+    console.log('✓ Optimized: symlink points to native binary (zero overhead)');
+  } catch (err) {
+    // Permission error or other issue - not critical, JS wrapper still works
+    console.log(`⚠ Could not optimize symlink: ${err.message}`);
+    console.log('  CLI will work via Node.js wrapper (slightly slower startup)');
   }
 }
 
@@ -299,10 +283,20 @@ async function fixWindowsShims() {
     return;
   }
 
+  const cmdShim = join(npmBinDir, 'agent-browser.cmd');
+  const ps1Shim = join(npmBinDir, 'agent-browser.ps1');
+
+  // Shims may not exist yet during postinstall (npm creates them after
+  // lifecycle scripts). If missing, fall back: the JS wrapper at
+  // bin/agent-browser.js handles Windows correctly via child_process.spawn.
+  if (!existsSync(cmdShim)) {
+    return;
+  }
+
   // Detect architecture so ARM64 Windows is handled correctly
   // (falls back to x64 binary — see platform detection above)
   const cpuArch = effectiveArch;
-  const relativeBinaryPath = `node_modules\\agent-browser-priv\\bin\\agent-browser-priv-win32-${cpuArch}.exe`;
+  const relativeBinaryPath = `node_modules\\agent-browser\\bin\\agent-browser-win32-${cpuArch}.exe`;
   const absoluteBinaryPath = join(npmBinDir, relativeBinaryPath);
 
   // Only rewrite shims if the native binary actually exists
@@ -310,24 +304,17 @@ async function fixWindowsShims() {
     return;
   }
 
-  let optimized = false;
-  for (const commandName of ['agent-browser', 'agent-browser-priv']) {
-    const cmdShim = join(npmBinDir, `${commandName}.cmd`);
-    const ps1Shim = join(npmBinDir, `${commandName}.ps1`);
-    if (!existsSync(cmdShim)) {
-      continue;
-    }
-
+  try {
     const cmdContent = `@ECHO off\r\n"%~dp0${relativeBinaryPath}" %*\r\n`;
     writeFileSync(cmdShim, cmdContent);
 
     const ps1Content = `#!/usr/bin/env pwsh\r\n$basedir = Split-Path $MyInvocation.MyCommand.Definition -Parent\r\n& "$basedir\\${relativeBinaryPath}" $args\r\nexit $LASTEXITCODE\r\n`;
     writeFileSync(ps1Shim, ps1Content);
-    optimized = true;
-  }
 
-  if (optimized) {
     console.log('✓ Optimized: shims point to native binary (zero overhead)');
+  } catch (err) {
+    console.log(`⚠ Could not optimize shims: ${err.message}`);
+    console.log('  CLI will work via Node.js wrapper (slightly slower startup)');
   }
 }
 

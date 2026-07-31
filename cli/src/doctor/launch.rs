@@ -1,5 +1,5 @@
-//! Live launch test: spawn a scratch daemon session, launch a headless
-//! browser, navigate to `about:blank`, then close. Skipped under `--quick`.
+//! Live launch test: spawn a scratch daemon session, launch headless
+//! Chrome, navigate to `about:blank`, then close. Skipped under `--quick`.
 //!
 //! A `LaunchGuard` Drop impl ensures the scratch session is closed and its
 //! sidecar files cleaned even on panic or early return.
@@ -10,10 +10,10 @@ use std::time::{Duration, Instant, SystemTime};
 use serde_json::{json, Value};
 
 use super::helpers::new_id;
-use super::{Check, Status};
+use super::{Check, DoctorOptions, Status};
 use crate::connection::{cleanup_stale_files, ensure_daemon, send_command, DaemonOptions};
 
-pub(super) fn check(checks: &mut Vec<Check>) {
+pub(super) fn check(checks: &mut Vec<Check>, opts: &DoctorOptions) {
     let category = "Launch test";
 
     if env::var("AGENT_BROWSER_PROVIDER").is_ok() {
@@ -50,9 +50,9 @@ pub(super) fn check(checks: &mut Vec<Check>) {
     // one `cleanup_stale_files`.
     let mut _guard: Option<LaunchGuard> = None;
 
-    let opts = DaemonOptions {
+    let daemon_opts = DaemonOptions {
         headed: false,
-        debug: false,
+        debug: opts.debug,
         executable_path: None,
         extensions: &[],
         init_scripts: &[],
@@ -66,6 +66,7 @@ pub(super) fn check(checks: &mut Vec<Check>) {
         ignore_https_errors: false,
         allow_file_access: false,
         hide_scrollbars: true,
+        webgpu: false,
         profile: None,
         state: None,
         provider: None,
@@ -80,7 +81,6 @@ pub(super) fn check(checks: &mut Vec<Check>) {
         action_policy: None,
         confirm_actions: None,
         engine: None,
-        backend: None,
         auto_connect: false,
         idle_timeout: None,
         default_timeout: None,
@@ -90,7 +90,7 @@ pub(super) fn check(checks: &mut Vec<Check>) {
     };
 
     let started = Instant::now();
-    if let Err(e) = ensure_daemon(&session, &opts) {
+    if let Err(e) = ensure_daemon(&session, &daemon_opts) {
         checks.push(
             Check::new(
                 "launch.daemon",
@@ -98,7 +98,7 @@ pub(super) fn check(checks: &mut Vec<Check>) {
                 Status::Fail,
                 format!("Could not start daemon: {}", e),
             )
-            .with_fix("check browser backend install and re-run with --debug"),
+            .with_fix("check Chrome install and re-run with --debug"),
         );
         return;
     }
@@ -164,18 +164,6 @@ pub(super) fn check(checks: &mut Vec<Check>) {
             format!("Headless launch + about:blank in {:.2}s", secs),
         ));
     }
-}
-
-pub(super) fn skip_for_version_mismatch(checks: &mut Vec<Check>) {
-    checks.push(
-        Check::new(
-            "launch.skipped.daemon_version_mismatch",
-            "Launch test",
-            Status::Warn,
-            "Skipped because version-mismatched daemons are active",
-        )
-        .with_fix("agent-browser close --all"),
-    );
 }
 
 fn send_json(cmd: Value, session: &str) -> Result<(), String> {

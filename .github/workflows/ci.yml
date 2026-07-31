@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
 
@@ -26,10 +26,9 @@ jobs:
   rust:
     name: Rust
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -37,7 +36,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache Rust build artifacts
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: cli
 
@@ -53,18 +52,17 @@ jobs:
   dashboard:
     name: Dashboard
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6.0.9
+        uses: pnpm/action-setup@v4
 
       - name: Install dependencies
         run: pnpm install --filter dashboard
@@ -96,24 +94,73 @@ jobs:
       - name: Test sandbox package
         run: pnpm --filter @agent-browser/sandbox test
 
+  eve-package:
+    name: Eve Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck Eve package
+        run: pnpm --filter @agent-browser/eve typecheck
+
+      - name: Test Eve package
+        run: pnpm --filter @agent-browser/eve test
+
+  patchright-provider:
+    name: Patchright Provider Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Patchright provider package
+        run: pnpm --filter agent-browser-plugin-patchright test
+
+      - name: Verify Patchright provider package contents
+        run: pnpm --filter agent-browser-plugin-patchright exec pnpm pack --dry-run
+
   rust-cross:
     name: Rust (${{ matrix.os }} - ${{ matrix.target }})
     if: github.event_name != 'pull_request'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
     strategy:
       matrix:
         include:
           - os: macos-latest
             target: aarch64-apple-darwin
-          # Windows support is temporarily disabled. Keep this placeholder so
-          # the lane can be restored without rediscovering the target triple.
-          # - os: windows-latest
-          #   target: x86_64-pc-windows-msvc
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -121,7 +168,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Cache Rust build artifacts
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: cli
 
@@ -133,22 +180,21 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     needs: rust
-    timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Rust build artifacts
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: cli
 
-      - name: Install Patchright browser backend
+      - name: Install Chrome
         run: |
-          cargo run --manifest-path cli/Cargo.toml -- install patchright --with-deps
+          cargo run --manifest-path cli/Cargo.toml -- install --with-deps
 
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -158,14 +204,13 @@ jobs:
 
   windows-integration:
     name: Windows Integration Test
-    if: false # Windows support is temporarily disabled; keep the job for future re-enable.
+    if: github.event_name != 'pull_request'
     runs-on: windows-latest
     needs: rust-cross
-    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -173,7 +218,7 @@ jobs:
           targets: x86_64-pc-windows-msvc
 
       - name: Cache Rust build artifacts
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: cli
 
@@ -182,13 +227,13 @@ jobs:
 
       - name: Copy CLI binary to bin directory
         run: |
-          Copy-Item cli/target/x86_64-pc-windows-msvc/release/agent-browser.exe bin/agent-browser-priv-win32-x64.exe
+          Copy-Item cli/target/x86_64-pc-windows-msvc/release/agent-browser.exe bin/agent-browser-win32-x64.exe
 
       - name: Test agent-browser install command
         run: |
           $env:PATH = "$pwd\bin;$env:PATH"
           for ($i = 1; $i -le 3; $i++) {
-            bin/agent-browser-priv-win32-x64.exe install
+            bin/agent-browser-win32-x64.exe install
             if ($LASTEXITCODE -eq 0) { exit 0 }
             Write-Host "Attempt $i failed, retrying in 10 seconds..."
             Start-Sleep -Seconds 10
@@ -201,14 +246,14 @@ jobs:
         run: |
           $env:PATH = "$pwd\bin;$env:PATH"
           Write-Host "--- Opening page ---"
-          bin/agent-browser-priv-win32-x64.exe open https://example.com
+          bin/agent-browser-win32-x64.exe open https://example.com
           if ($LASTEXITCODE -ne 0) { Write-Error "open failed"; exit 1 }
           Write-Host "--- Taking snapshot ---"
-          $snapshot = bin/agent-browser-priv-win32-x64.exe snapshot
+          $snapshot = bin/agent-browser-win32-x64.exe snapshot
           if ($LASTEXITCODE -ne 0) { Write-Error "snapshot failed"; exit 1 }
           Write-Host $snapshot
           Write-Host "--- Closing browser ---"
-          bin/agent-browser-priv-win32-x64.exe close
+          bin/agent-browser-win32-x64.exe close
           if ($LASTEXITCODE -ne 0) { Write-Error "close failed"; exit 1 }
           Write-Host "--- Windows daemon lifecycle test passed ---"
         shell: pwsh
@@ -219,27 +264,25 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ${{ matrix.os }}
     needs: rust-cross
-    timeout-minutes: 30
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            binary: agent-browser-priv-linux-x64
+            binary: agent-browser-linux-x64
           - os: macos-latest
             target: aarch64-apple-darwin
-            binary: agent-browser-priv-darwin-arm64
-          # Windows support is temporarily disabled.
-          # - os: windows-latest
-          #   target: x86_64-pc-windows-msvc
-          #   binary: agent-browser-priv-win32-x64.exe
+            binary: agent-browser-darwin-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: agent-browser-win32-x64.exe
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
 
@@ -249,7 +292,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Cache Rust build artifacts
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: cli
 
@@ -267,40 +310,35 @@ jobs:
       - name: Test npm global install
         run: |
           npm pack
-          npm install -g agent-browser-priv-*.tgz
+          npm install -g agent-browser-*.tgz
           agent-browser --version
-          agent-browser-priv --version
         shell: bash
 
       - name: Verify symlink points to native binary (Unix)
         if: runner.os != 'Windows'
         run: |
-          for COMMAND_NAME in agent-browser agent-browser-priv; do
-            SYMLINK=$(npm prefix -g)/bin/$COMMAND_NAME
-            TARGET=$(readlink "$SYMLINK")
-            echo "Symlink: $SYMLINK"
-            echo "Target: $TARGET"
-            if [[ "$TARGET" != *"${{ matrix.binary }}"* ]]; then
-              echo "ERROR: $COMMAND_NAME symlink should point to native binary, not JS wrapper"
-              exit 1
-            fi
-          done
-          echo "Symlinks correctly point to native binary"
+          SYMLINK=$(npm prefix -g)/bin/agent-browser
+          TARGET=$(readlink "$SYMLINK")
+          echo "Symlink: $SYMLINK"
+          echo "Target: $TARGET"
+          if [[ "$TARGET" != *"${{ matrix.binary }}"* ]]; then
+            echo "ERROR: Symlink should point to native binary, not JS wrapper"
+            exit 1
+          fi
+          echo "Symlink correctly points to native binary"
         shell: bash
 
       - name: Verify shim points to native binary (Windows)
         if: runner.os == 'Windows'
         run: |
-          foreach ($commandName in @("agent-browser", "agent-browser-priv")) {
-            $shimPath = "$(npm prefix -g)\$commandName.cmd"
-            $content = Get-Content $shimPath -Raw
-            echo "Shim path: $shimPath"
-            echo "Shim content:"
-            echo $content
-            if ($content -notmatch "agent-browser-priv-win32-x64\.exe") {
-              echo "ERROR: $commandName shim should point to native .exe, not JS wrapper"
-              exit 1
-            }
+          $shimPath = "$(npm prefix -g)\agent-browser.cmd"
+          $content = Get-Content $shimPath -Raw
+          echo "Shim path: $shimPath"
+          echo "Shim content:"
+          echo $content
+          if ($content -notmatch "agent-browser-win32-x64\.exe") {
+            echo "ERROR: Shim should point to native .exe, not JS wrapper"
+            exit 1
           }
-          echo "Shims correctly point to native binary"
+          echo "Shim correctly points to native binary"
         shell: pwsh

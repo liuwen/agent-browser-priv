@@ -1,0 +1,68 @@
+# Patchright
+
+The independently versioned `agent-browser-plugin-patchright` package launches a local Chrome session through [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright) and returns a browser-level CDP endpoint to agent-browser. Use it selectively for browser automation discovery without changing the normal local Chrome default or any hosted provider.
+
+## Setup
+
+From the repository root, build and register the private plugin from the local workspace:
+
+```bash
+pnpm --filter agent-browser-plugin-patchright build
+agent-browser plugin add "file:$PWD/packages/@agent-browser/plugin-patchright" --global
+```
+
+The provider uses an existing Google Chrome installation by default. No npm publication or registry login is required.
+
+Launch a session through the provider:
+
+```bash
+agent-browser --provider patchright --headed open https://example.com
+agent-browser snapshot -i
+agent-browser close
+```
+
+The plugin manifest registers the name `patchright` with the `browser.provider` capability. `--provider patchright` affects only the selected session.
+
+## Lifecycle
+
+Each launch creates a fresh temporary profile and a detached supervisor. The supervisor owns the Patchright persistent context, browser process, private runtime state, and an authenticated loopback control endpoint. agent-browser receives only a browser-level CDP URL, public metadata, and an opaque cleanup token.
+
+Normal `agent-browser close`, relaunch, connection failure, network-control failure, and provider-owned daemon idle shutdown send the cleanup token back through `browser.close`. The supervisor then closes the context and removes its temporary profile and state.
+
+Clean up all reachable provider-owned instances manually:
+
+```bash
+node packages/@agent-browser/plugin-patchright/dist/index.js cleanup
+```
+
+## Configuration
+
+<table>
+  <thead><tr><th>Variable</th><th>Description</th><th>Default</th></tr></thead>
+  <tbody>
+    <tr><td><code>AGENT_BROWSER_PATCHRIGHT_CHANNEL</code></td><td>Patchright browser channel. Use <code>chromium</code> only after installing that artifact explicitly.</td><td><code>chrome</code></td></tr>
+    <tr><td><code>AGENT_BROWSER_PATCHRIGHT_RUNTIME_DIR</code></td><td>Private supervisor state directory.</td><td><code>~/.agent-browser/providers/patchright</code></td></tr>
+    <tr><td><code>AGENT_BROWSER_PATCHRIGHT_MAX_LIFETIME_MS</code></td><td>Forced supervisor lifetime, bounded between one minute and seven days.</td><td>One day</td></tr>
+  </tbody>
+</table>
+
+Use Patchright-managed Chromium explicitly:
+
+```bash
+node packages/@agent-browser/plugin-patchright/dist/index.js install chromium
+AGENT_BROWSER_PATCHRIGHT_CHANNEL=chromium agent-browser --provider patchright open https://example.com
+```
+
+The current generic provider contract forwards headed mode, engine, user agent, and color scheme. Existing profiles and extensions are not supported by this provider. Patchright recommends headed Chrome without a custom user agent for detection-sensitive work.
+
+## Driver boundary
+
+This provider uses Patchright to launch Chrome, but agent-browser performs subsequent automation through its own raw Rust CDP client. Patchright's browser selection and launch argument changes apply. Driver-level protections implemented by changing Patchright's own CDP behavior, including its avoidance of `Runtime.enable`, do not apply to commands sent by agent-browser.
+
+Use native Patchright directly in a sandbox when its complete driver behavior is required. Use this provider when agent-browser's snapshots, interactions, tabs, state, streaming, policies, and discovery workflow are the priority.
+
+## Security
+
+The browser debugger and supervisor control endpoint bind only to loopback. Runtime state is private to the current user where the platform supports file permissions, and the cleanup nonce is excluded from browser metadata and logs.
+
+Like every plugin, this package is an unsandboxed local executable. Install it only from a source you trust. With `--allowed-domains`, the plugin starts at `about:blank` and returns a browser-level endpoint so agent-browser can install popup, worker, WebRTC, and request containment after connection. Provider startup occurs before that connection, so do not configure a startup URL or persistent profile outside agent-browser.

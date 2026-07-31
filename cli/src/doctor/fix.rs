@@ -1,6 +1,6 @@
-//! Destructive repair actions behind `--fix`: install browser backends,
-//! close version-mismatched daemons, purge expired state files, and generate
-//! a missing encryption key.
+//! Destructive repair actions behind `--fix`: reinstall Chrome, close
+//! version-mismatched daemons, purge expired state files, and generate a
+//! missing encryption key.
 
 use std::env;
 use std::fs;
@@ -25,19 +25,10 @@ pub(super) fn run(checks: &mut [Check], fixed: &mut Vec<String>) {
 
     for c in checks.iter_mut() {
         match c.id.as_str() {
-            "backend.patchright" if c.status == Status::Fail => {
-                let installed = attempt_patchright_install();
-                if installed {
-                    fixed.push("Installed Patchright backend".to_string());
-                    c.status = Status::Pass;
-                    c.message = format!("{} (fixed by --fix)", c.message);
-                    c.fix = None;
-                }
-            }
             "chrome.installed" if c.status == Status::Fail => {
                 let installed = attempt_chrome_install();
                 if installed {
-                    fixed.push("Installed Chrome backend".to_string());
+                    fixed.push("Reinstalled Chrome".to_string());
                     c.status = Status::Pass;
                     c.message = format!("{} (fixed by --fix)", c.message);
                     c.fix = None;
@@ -89,21 +80,6 @@ fn attempt_chrome_install() -> bool {
     };
     std::process::Command::new(exe)
         .arg("install")
-        .arg("chrome")
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
-}
-
-fn attempt_patchright_install() -> bool {
-    // run_patchright_install() uses process::exit on failure, so we shell out
-    // to ourselves to avoid taking down the doctor process if install fails.
-    let exe = match std::env::current_exe() {
-        Ok(p) => p,
-        Err(_) => return false,
-    };
-    std::process::Command::new(exe)
-        .arg("install")
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
@@ -112,13 +88,6 @@ fn attempt_patchright_install() -> bool {
 fn close_all_sessions() -> usize {
     let mut killed = 0;
     for session in &walk_daemons().sessions {
-        if session.version.as_deref() != Some(env!("CARGO_PKG_VERSION")) {
-            kill_session_process(session.pid);
-            killed += 1;
-            cleanup_stale_files(&session.name);
-            continue;
-        }
-
         let cmd = json!({ "id": new_id(), "action": "close" });
         if send_command(cmd, &session.name).is_ok() {
             killed += 1;
@@ -126,24 +95,6 @@ fn close_all_sessions() -> usize {
         cleanup_stale_files(&session.name);
     }
     killed
-}
-
-fn kill_session_process(pid: u32) {
-    #[cfg(unix)]
-    unsafe {
-        libc::kill(pid as i32, libc::SIGKILL);
-    }
-    #[cfg(windows)]
-    unsafe {
-        use windows_sys::Win32::Foundation::CloseHandle;
-        use windows_sys::Win32::System::Threading::{OpenProcess, TerminateProcess};
-
-        let handle = OpenProcess(1, 0, pid);
-        if handle != 0 {
-            TerminateProcess(handle, 1);
-            CloseHandle(handle);
-        }
-    }
 }
 
 fn purge_old_state() -> usize {

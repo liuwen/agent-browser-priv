@@ -1,0 +1,32 @@
+{
+  "name": "agent-browser-plugin-patchright",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Patchright browser provider plugin for agent-browser",
+  "type": "module",
+  "files": ["dist", "README.md"],
+  "bin": { "agent-browser-plugin-patchright": "./dist/index.js" },
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./runtime": { "types": "./dist/runtime.d.ts", "import": "./dist/runtime.js" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "pnpm run build",
+    "test": "pnpm run build && node --test test/*.test.mjs",
+    "smoke": "pnpm run build && node test/smoke.mjs"
+  },
+  "engines": { "node": ">=24.0.0" },
+  "keywords": ["agent-browser", "patchright", "browser-provider"],
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/liuwen/agent-browser-priv.git",
+    "directory": "packages/@agent-browser/plugin-patchright"
+  },
+  "bugs": {
+    "url": "https://github.com/liuwen/agent-browser-priv/issues"
+  },
+  "dependencies": { "patchright": "1.61.1" },
+  "devDependencies": { "@types/node": "24.10.1", "typescript": "5.9.3" }
+}

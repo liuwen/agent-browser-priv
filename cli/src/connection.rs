@@ -442,6 +442,7 @@ pub struct DaemonOptions<'a> {
     pub ignore_https_errors: bool,
     pub allow_file_access: bool,
     pub hide_scrollbars: bool,
+    pub webgpu: bool,
     pub profile: Option<&'a str>,
     pub state: Option<&'a str>,
     pub provider: Option<&'a str>,
@@ -456,7 +457,6 @@ pub struct DaemonOptions<'a> {
     pub action_policy: Option<&'a str>,
     pub confirm_actions: Option<&'a str>,
     pub engine: Option<&'a str>,
-    pub backend: Option<&'a str>,
     pub auto_connect: bool,
     pub idle_timeout: Option<&'a str>,
     pub default_timeout: Option<u64>,
@@ -515,6 +515,9 @@ fn apply_daemon_env(cmd: &mut Command, session: &str, opts: &DaemonOptions) {
         "AGENT_BROWSER_HIDE_SCROLLBARS",
         if opts.hide_scrollbars { "1" } else { "0" },
     );
+    if opts.webgpu {
+        cmd.env("AGENT_BROWSER_WEBGPU", "1");
+    }
     if let Some(prof) = opts.profile {
         cmd.env("AGENT_BROWSER_PROFILE", prof);
     }
@@ -557,9 +560,6 @@ fn apply_daemon_env(cmd: &mut Command, session: &str, opts: &DaemonOptions) {
     if let Some(engine) = opts.engine {
         cmd.env("AGENT_BROWSER_ENGINE", engine);
     }
-    if let Some(backend) = opts.backend {
-        cmd.env("AGENT_BROWSER_BACKEND", backend);
-    }
     if opts.auto_connect {
         cmd.env("AGENT_BROWSER_AUTO_CONNECT", "1");
     }
@@ -580,29 +580,14 @@ fn apply_daemon_env(cmd: &mut Command, session: &str, opts: &DaemonOptions) {
     }
 }
 
-fn resolved_engine(engine: Option<&str>) -> &str {
-    engine.unwrap_or("chrome")
-}
-
-fn resolved_local_backend<'a>(engine: Option<&str>, backend: Option<&'a str>) -> &'a str {
-    backend.unwrap_or(if resolved_engine(engine) == "chrome" {
-        "patchright"
-    } else {
-        "chrome"
-    })
-}
-
 fn daemon_config_fingerprint(opts: &DaemonOptions) -> String {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     opts.debug.hash(&mut hasher);
     opts.action_policy.hash(&mut hasher);
     opts.confirm_actions.hash(&mut hasher);
-    opts.allowed_domains.hash(&mut hasher);
     opts.idle_timeout.hash(&mut hasher);
     opts.default_timeout.hash(&mut hasher);
     opts.no_auto_dialog.hash(&mut hasher);
-    resolved_engine(opts.engine).hash(&mut hasher);
-    resolved_local_backend(opts.engine, opts.backend).hash(&mut hasher);
     format!("{:016x}", hasher.finish())
 }
 
@@ -1031,9 +1016,6 @@ pub fn send_command(cmd: Value, session: &str) -> Result<Response, String> {
         match send_command_once(&cmd, session) {
             Ok(response) => return Ok(response),
             Err(e) => {
-                if is_read_timeout_error(&e) {
-                    return Err(format!("{} (daemon may be busy or unresponsive)", e));
-                }
                 if is_transient_error(&e) {
                     last_error = e;
                     continue;
@@ -1073,14 +1055,6 @@ fn is_transient_error(error: &str) -> bool {
         || has_os_error(error, 10054) // Connection reset by peer (Windows)
 }
 
-fn is_read_timeout_error(error: &str) -> bool {
-    error.starts_with("Failed to read:")
-        && (has_os_error(error, 35)
-            || has_os_error(error, 11)
-            || error.contains("WouldBlock")
-            || error.contains("Resource temporarily unavailable"))
-}
-
 /// True when the error means no daemon is listening on the session socket
 /// (exited or never started), as opposed to a live-but-busy daemon. The
 /// remedy is a respawn through ensure_daemon, not a retry.
@@ -1118,17 +1092,9 @@ fn read_timeout_for(cmd: &Value) -> Duration {
 }
 
 fn send_command_once(cmd: &Value, session: &str) -> Result<Response, String> {
-    send_command_once_with_timeout(cmd, session, read_timeout_for(cmd))
-}
-
-fn send_command_once_with_timeout(
-    cmd: &Value,
-    session: &str,
-    read_timeout: Duration,
-) -> Result<Response, String> {
     let mut stream = connect(session)?;
 
-    stream.set_read_timeout(Some(read_timeout)).ok();
+    stream.set_read_timeout(Some(read_timeout_for(cmd))).ok();
     stream.set_write_timeout(Some(Duration::from_secs(5))).ok();
 
     let mut json_str = serde_json::to_string(cmd).map_err(|e| e.to_string())?;
@@ -1284,6 +1250,7 @@ mod tests {
             ignore_https_errors: false,
             allow_file_access: false,
             hide_scrollbars: true,
+            webgpu: false,
             profile: None,
             state: None,
             provider: None,
@@ -1298,7 +1265,6 @@ mod tests {
             action_policy: None,
             confirm_actions: None,
             engine: None,
-            backend: None,
             auto_connect: false,
             idle_timeout,
             default_timeout: None,
@@ -1315,11 +1281,6 @@ mod tests {
         let idle_changed = test_daemon_options(Some("1000"), false, None);
         let dialog_changed = test_daemon_options(None, true, None);
         let domains_changed = test_daemon_options(None, false, Some(&domains));
-        let mut explicit_default = test_daemon_options(None, false, None);
-        explicit_default.engine = Some("chrome");
-        explicit_default.backend = Some("patchright");
-        let mut chrome_backend = test_daemon_options(None, false, None);
-        chrome_backend.backend = Some("chrome");
 
         assert_ne!(
             daemon_config_fingerprint(&base),
@@ -1329,17 +1290,10 @@ mod tests {
             daemon_config_fingerprint(&base),
             daemon_config_fingerprint(&dialog_changed)
         );
-        assert_ne!(
-            daemon_config_fingerprint(&base),
-            daemon_config_fingerprint(&domains_changed)
-        );
         assert_eq!(
             daemon_config_fingerprint(&base),
-            daemon_config_fingerprint(&explicit_default)
-        );
-        assert_ne!(
-            daemon_config_fingerprint(&base),
-            daemon_config_fingerprint(&chrome_backend)
+            daemon_config_fingerprint(&domains_changed),
+            "allowed domains are browser launch state, not daemon identity"
         );
     }
 

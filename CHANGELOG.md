@@ -1,119 +1,187 @@
 # agent-browser
 
-## 0.31.1-priv.2
+## 0.33.1
 
 <!-- release:start -->
+### Behavior Changes
+
+- The daemon now ships a **default idle timeout of 1 hour**: after an hour with no commands or dashboard input it saves configured restore state, closes the browser, and exits, so integrations that die without calling `close` no longer leak the daemon and its Chrome tree indefinitely. Sessions without `--restore` or another restore key discard transient browser state and open tabs when they shut down. Set `AGENT_BROWSER_IDLE_TIMEOUT_MS=0` to restore the old always-persist behavior, or any other value to tune it. Dashboard mouse, keyboard, and touch input reset the timer. The default never closes headed browsers, including Safari and iOS WebDriver sessions, or user-attached browsers that may be in direct human use. Provider-owned cloud browsers remain eligible for cleanup, and an explicitly configured timeout applies to all browsers, as before (#1605)
+
 ### Bug Fixes
 
-- Fixed **Homebrew skills packaging** by hydrating version-matched bundled skills into `~/.agent-browser/skills/<version>` when a binary-only install cannot find package directories.
+- Fixed **tab recovery and selection** to avoid daemon hangs on Memory Saver-discarded tabs by selecting a live renderer on CDP connect, reviving tabs on switch or after close, treating dialog-blocked tabs as live, preserving refs on rejected operations, and surfacing recovery state across CLI, JSON, and MCP output (#1543)
+- Fixed **a11y selector errors** to report invalid CSS selectors cleanly instead of exposing raw browser evaluation stack traces in text and JSON output (#1604)
 
 ### Contributors
 
-- @liuwen
+- @ctate
+- @Railly
+- @joelhooks
+- @jadenfix
 <!-- release:end -->
 
-## 0.31.1-priv.1
+## 0.33.0
 
 ### New Features
 
-- Synced the private fork with upstream `agent-browser` 0.31.1, including the `read` command and MCP tool for agent-readable text extraction.
-- Added upstream restore workflow support with `--restore`, `--restore-save`, validation flags, worktree-scoped `session id`, `session info`, and `--namespace`.
-- Brought in upstream sandbox helper source, examples, and documentation without adding a private release publish lane for `@agent-browser/sandbox`.
-
-### Improvements
-
-- Updated the default Patchright backend pin from 1.61.0 to 1.61.1.
-- Kept Patchright as the default local Chrome-compatible backend while preserving `--backend chrome` for the built-in Chrome launcher.
-- Kept the private release surface focused on Linux x64, Linux ARM64, and macOS ARM64 artifacts.
-
-### Bug Fixes
-
-- Included upstream URL wait glob matching fixes for `wait --url` and `waitforurl`.
-- Included upstream React renderer detection fixes for Next.js 16.3 Turbopack.
-
-### Infrastructure
-
-- Kept release builds and smoke validation on GitHub Actions, including npm, GitHub release assets, and Homebrew tap updates.
-- Preserved Windows release placeholders while keeping Windows artifacts disabled for this fork.
+- Added **axe-core accessibility audits** with `agent-browser a11y [url]`, WCAG tag filtering, selector scoping, iframe-aware text and JSON results, an embedded offline and CSP-safe audit engine, and a matching MCP tool (#1596)
 
 ### Contributors
 
-- @liuwen
 - @ctate
-- @gaearon
-- @gaojude
 
-## 0.28.0-priv.2
+## 0.32.4
+
+### Bug Fixes
+
+- Fixed **find role** to match implicit ARIA roles and browser-computed accessible names through the accessibility tree, so semantic elements like `<h2>` (heading) and `<ul>` (list) resolve, with case-insensitive substring name matching that mirrors Playwright's `getByRole` (#1552)
+- Fixed **element-not-found errors** to preserve the locator detail (selector, role, name, or index) instead of flattening every miss into one generic message, and aligned the advertised `find` actions with the set the dispatcher actually accepts (#1553)
+
+### Contributors
+
+- @Railly
+- @cooleryu
+
+## 0.32.3
+
+### New Features
+
+- Added **HAR response body capture** with text bodies embedded by default and configurable `all`, `text`, and `none` content modes across the CLI and MCP surfaces (#1578)
+- Added a **derive-client skill** for recording browser traffic and generating reusable API clients from HAR request and response data (#1578)
+
+### Contributors
+
+- @ctate
+
+## 0.32.2
 
 ### Improvements
 
-- Updated the default Patchright backend pin from 1.60.2 to 1.61.0.
-- Added `agent-browser doctor` reporting for the installed Patchright version, the release pin, and npm latest when network checks are enabled.
+- Updated **eve extension packaging** for eve 0.25.1, adopting the new source and dist extension manifest format, updating the eve example to stable AI SDK releases, and keeping extension tests aligned with eve's scoped config registry (#1570)
 
-### Infrastructure
+### Contributors
 
-- Added runtime update tracking in `priv/version-tracking.json`, plus scripts to check upstream `agent-browser` and Patchright freshness.
-- Added a scheduled/manual runtime update workflow that can generate Patchright bump branches from GitHub Actions.
-- Hardened the workflow to fetch existing bump branches before force-with-lease pushes and to leave a green run with a manual PR link when GitHub Actions cannot create pull requests.
+- @AndrewBarba
+
+## 0.32.1
+
+### Improvements
+
+- Widened **eve compatibility** for `@agent-browser/eve` to accept eve 0.23 and future major releases without peer-resolution warnings (#1563)
 
 ### Documentation
 
-- Documented Patchright release pinning, doctor-based freshness checks, and the fork maintenance flow.
+- Standardized **eve branding** to use lowercase styling across the docs, examples, package readmes, and release notes (#1557)
 
 ### Contributors
 
-- @liuwen
+- @ctate
 
-## 0.28.0-priv.1
+## 0.32.0
 
 ### New Features
 
-- Rebased the fork onto upstream `agent-browser` 0.28.0, including the MCP server and plugin system.
-- Kept **agent-browser** as the primary installed command while retaining `agent-browser-priv` as a compatibility alias.
-- Kept **Patchright** as the default local Chrome-compatible backend. Use `--backend chrome` or `AGENT_BROWSER_BACKEND=chrome` to force the built-in Chrome CDP launcher.
-
-### Improvements
-
-- Preserved upstream plugin launch-mutator behavior while keeping backend-specific launch hashing and browser launch selection.
-- Added `--wait-until <none|domcontentloaded|load|networkidle>` to `open`, `goto`, and `navigate`, allowing challenge/debug pages to return immediately before bounded DOM/title checks.
-- Kept the release surface focused on Linux x64, Linux ARM64, and macOS ARM64 artifacts.
-- Kept npm trusted publishing and Homebrew tap update support for ad hoc installs and local daily use.
-
-### Infrastructure
-
-- Fixed CI install parsing for `agent-browser install --with-deps`, made timeout-sensitive tests deterministic, and bounded long-running CI jobs.
-- Temporarily disabled Windows CI, release, and npm binary lanes while keeping restore placeholders; active artifacts are Linux x64, Linux ARM64, and macOS ARM64.
-- Added a release-gated Homebrew tap updater that generates formula checksums from published GitHub release assets and skips cleanly when tap credentials are not configured.
-
-### Bug Fixes
-
-- Fixed Patchright CDP readiness detection so `open --wait-until none` no longer hangs while Chrome keeps `/json/version` connections open.
-- Fixed Patchright browser WebSocket URLs by sending the CDP port in the HTTP `Host` header during readiness probing.
-- Added bounded CDP evaluation timeouts for wait/title/body-text diagnostics so challenge pages fail or match on the user-visible timeout instead of blocking behind a renderer call.
-- Stopped retrying daemon socket read timeouts against the same busy daemon, avoiding multi-minute command amplification.
-- Forwarded proxy, proxy-bypass, user-agent, ignore-HTTPS-errors, download path, and color-scheme options into the default Patchright backend.
-- Kept Patchright CDP bound to localhost by filtering user remote-debugging args and appending the managed CDP bind last.
-- Made Patchright launch failure cleanup kill the child process group before bounded stderr collection, reducing orphaned browser and long-hang cases.
-- Made `--wait-until none` return without post-navigation title/URL evaluation, so challenge/debug pages do not turn non-blocking navigation into a renderer wait.
-- Made `agent-browser doctor` skip its live launch test when version-mismatched daemons are already active, avoiding long retry hangs and pointing users to `agent-browser close --all`.
-- Made `agent-browser doctor --fix` clean incompatible daemons before running launch checks.
-- Made `agent-browser close --all` force-clean version-mismatched daemons instead of negotiating with incompatible session sockets.
+- **eve extension** - Added `@agent-browser/eve`, an eve extension that mounts the agent-browser tool set with namespaced browser tools, sandbox bootstrap helpers, docs, examples, CI, and release packaging (#1547)
 
 ### Security
 
-- Pinned the Patchright backend npm install with an exact package version and lockfile, and switched backend install to `npm ci`.
+- Hardened **domain allowlists** by blocking WebRTC bypasses, applying network containment across launch modes, workers, popups, restored state, and reused daemon sessions, rejecting unsafe startup arguments, and adding Chrome regression coverage (#1546)
 
-### Documentation
+### Bug Fixes
 
-- Updated README, docs, and bundled skills to document Patchright's Node.js runtime requirement, backend proxy support, and `--wait-until` usage.
-
-### Diagnostics
-
-- Added `--debug` launch trace lines for Patchright startup, CDP WebSocket connect, and target attachment.
+- Fixed **completed-page waits** so load and DOMContentLoaded waits resolve immediately when the current document is already ready, with structured eve wait timeout handling and focused coverage (#1554)
 
 ### Contributors
 
-- @liuwen
+- @ctate
+- @dnukumamras
+
+## 0.31.2
+
+### New Features
+
+- **WebGPU launch preset** - Added `--webgpu` across the CLI, config, environment, and MCP surfaces, with hardware backends on macOS and Windows, software Vulkan on Linux, automatic Xvfb for displayless headed sessions, and a `doctor --webgpu` render and screenshot probe (#1529)
+
+### Improvements
+
+- Added periodic **restore-state autosaves** while the browser remains open, preserving recent state after a browser window is closed by hand and capturing background page changes while honoring the restore save policy. The interval is configurable with `AGENT_BROWSER_AUTOSAVE_INTERVAL_MS` (#1509)
+
+### Contributors
+
+- @ctate
+
+## 0.31.1
+
+### Bug Fixes
+
+- Fixed the **React renderer** so it picks the react-dom renderer instead of hardcoding renderer id 1, which prevented reading an empty tree on Next.js 16.3 Turbopack (#1491)
+
+### Contributors
+
+- @gaojude
+
+## 0.31.0
+
+### New Features
+
+- **Restore workflow** - Added `--restore`, `--restore-save`, restore validation flags, worktree-scoped `session id`, `session info`, and `--namespace` so agent runs can use stable, isolated, automatically restored browser state without managing state files by hand (#1486)
+
+### Improvements
+
+- Hardened **session lifecycle handling** with explicit daemon and browser compatibility checks, lifecycle status output, MCP support for restore options, and safer auto-save behavior that avoids overwriting good state after a failed restore or failed validation (#1486)
+
+### Bug Fixes
+
+- Fixed **restore lifecycle edge cases** around switching restore keys with a live browser, daemon configuration startup races, launch mode validation, and clearing restore failures after an explicit state load (#1486)
+
+### Contributors
+
+- @ctate
+
+## 0.30.1
+
+### Bug Fixes
+
+- Fixed **URL waits** so `wait --url` and `waitforurl` honor glob patterns such as `**/dashboard` against the full active URL (#1483)
+
+### Contributors
+
+- @gaearon
+
+## 0.30.0
+
+### New Features
+
+- **Read command** - Added `agent-browser read [url]` and the matching MCP tool for agent-readable text extraction. URL reads prefer Markdown, try `.md` and nearby `llms.txt` docs, support outlines, filters, raw and JSON output, headers, and domain/output safeguards; omitting the URL reads the rendered active tab DOM with current browser state (#1480)
+
+### Contributors
+
+- @ctate
+
+## 0.29.1
+
+### Improvements
+
+- Defaulted **sandbox system dependency installs** so the eve and Vercel sandbox helpers install Chromium's required libraries unless explicitly disabled, making first-run sandbox setup simpler (#1469)
+
+### Contributors
+
+- @ctate
+
+## 0.29.0
+
+### New Features
+
+- **Sandbox package** - Added `@agent-browser/sandbox` with shared, eve, and Vercel Sandbox helpers, example projects, and docs for running agent-browser in hosted sandbox environments (#1465)
+
+### Improvements
+
+- Updated **sandbox release flow** so the new package stays version-synced with the CLI release and publishes from the correct workspace path (#1465)
+- Reflowed **documentation prose** across the README, docs site, examples, and skills so Markdown and MDX wrap naturally in editors and renderers (#1466)
+
+### Contributors
+
+- @ctate
 
 ## 0.28.0
 

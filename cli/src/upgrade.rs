@@ -3,7 +3,7 @@ use std::path::Path;
 use std::process::{exit, Command, Stdio};
 
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
-const NPM_REGISTRY_URL: &str = "https://registry.npmjs.org/agent-browser-priv/latest";
+const NPM_REGISTRY_URL: &str = "https://registry.npmjs.org/agent-browser/latest";
 
 enum InstallMethod {
     Npm,
@@ -81,8 +81,8 @@ fn detect_install_method() -> InstallMethod {
             return InstallMethod::Bun;
         }
 
-        if path_str.contains("node_modules/agent-browser-priv")
-            || path_str.contains("node_modules\\agent-browser-priv")
+        if path_str.contains("node_modules/agent-browser")
+            || path_str.contains("node_modules\\agent-browser")
         {
             return InstallMethod::Npm;
         }
@@ -99,25 +99,21 @@ fn detect_install_method() -> InstallMethod {
 
     if command_output_contains(
         "pnpm",
-        &["list", "-g", "agent-browser-priv", "--depth=0"],
-        "agent-browser-priv",
+        &["list", "-g", "agent-browser", "--depth=0"],
+        "agent-browser",
     ) {
         return InstallMethod::Pnpm;
     }
 
-    if command_output_contains(
-        "yarn",
-        &["global", "list", "--depth=0"],
-        "agent-browser-priv",
-    ) {
+    if command_output_contains("yarn", &["global", "list", "--depth=0"], "agent-browser") {
         return InstallMethod::Yarn;
     }
 
-    if command_output_contains("bun", &["pm", "ls", "-g"], "agent-browser-priv") {
+    if command_output_contains("bun", &["pm", "ls", "-g"], "agent-browser") {
         return InstallMethod::Bun;
     }
 
-    if command_succeeds("npm", &["list", "-g", "agent-browser-priv", "--depth=0"]) {
+    if command_succeeds("npm", &["list", "-g", "agent-browser", "--depth=0"]) {
         return InstallMethod::Npm;
     }
 
@@ -147,40 +143,35 @@ fn run_upgrade_command(method: &InstallMethod) -> bool {
     let (cmd, args, display): (&str, &[&str], &str) = match method {
         InstallMethod::Npm => (
             "npm",
-            &["install", "-g", "agent-browser-priv@latest"],
-            "npm install -g agent-browser-priv@latest",
+            &["install", "-g", "agent-browser@latest"],
+            "npm install -g agent-browser@latest",
         ),
         InstallMethod::Pnpm => (
             "pnpm",
-            &["add", "-g", "agent-browser-priv@latest"],
-            "pnpm add -g agent-browser-priv@latest",
+            &["add", "-g", "agent-browser@latest"],
+            "pnpm add -g agent-browser@latest",
         ),
         // NOTE: `yarn global` is Yarn Classic (v1) only; Yarn Berry (v2+) removed it.
         // Users on Yarn v2+ won't reach this path — detection falls through to Unknown.
         InstallMethod::Yarn => (
             "yarn",
-            &["global", "add", "agent-browser-priv@latest"],
-            "yarn global add agent-browser-priv@latest",
+            &["global", "add", "agent-browser@latest"],
+            "yarn global add agent-browser@latest",
         ),
         InstallMethod::Bun => (
             "bun",
-            &["install", "-g", "agent-browser-priv@latest"],
-            "bun install -g agent-browser-priv@latest",
+            &["install", "-g", "agent-browser@latest"],
+            "bun install -g agent-browser@latest",
         ),
         InstallMethod::Homebrew => (
             "brew",
-            &["upgrade", "liuwen/agent-browser-priv/agent-browser"],
-            "brew upgrade liuwen/agent-browser-priv/agent-browser",
+            &["upgrade", "agent-browser"],
+            "brew upgrade agent-browser",
         ),
         InstallMethod::Cargo => (
             "cargo",
-            &[
-                "install",
-                "--git",
-                "https://github.com/liuwen/agent-browser-priv",
-                "--force",
-            ],
-            "cargo install --git https://github.com/liuwen/agent-browser-priv --force",
+            &["install", "agent-browser", "--force"],
+            "cargo install agent-browser --force",
         ),
         InstallMethod::Unknown => return false,
     };
@@ -247,14 +238,12 @@ pub fn run_upgrade() {
             color::error_indicator()
         );
         eprintln!("  To update manually, run one of:");
-        eprintln!("    npm install -g agent-browser-priv@latest       # npm");
-        eprintln!("    pnpm add -g agent-browser-priv@latest          # pnpm");
-        eprintln!("    yarn global add agent-browser-priv@latest       # yarn");
-        eprintln!("    bun install -g agent-browser-priv@latest        # bun");
-        eprintln!("    brew upgrade liuwen/agent-browser-priv/agent-browser  # Homebrew");
-        eprintln!(
-            "    cargo install --git https://github.com/liuwen/agent-browser-priv --force  # Cargo"
-        );
+        eprintln!("    npm install -g agent-browser@latest       # npm");
+        eprintln!("    pnpm add -g agent-browser@latest          # pnpm");
+        eprintln!("    yarn global add agent-browser@latest       # yarn");
+        eprintln!("    bun install -g agent-browser@latest        # bun");
+        eprintln!("    brew upgrade agent-browser                 # Homebrew");
+        eprintln!("    cargo install agent-browser --force        # Cargo");
         exit(1);
     }
 

@@ -278,6 +278,112 @@ fn format_vitals_text(data: &serde_json::Value) -> String {
     lines.join("\n")
 }
 
+pub(crate) fn format_a11y_text(data: &serde_json::Value) -> String {
+    let url = data.get("url").and_then(|v| v.as_str()).unwrap_or("-");
+    let version = data
+        .get("axeVersion")
+        .and_then(|v| v.as_str())
+        .unwrap_or("?");
+    let counts = data.get("counts").cloned().unwrap_or_default();
+    let count = |key: &str| counts.get(key).and_then(|v| v.as_u64()).unwrap_or(0);
+
+    let mut lines = vec![
+        format!("url: {}", url),
+        format!(
+            "axe-core: {}  violations: {}  incomplete: {}  passes: {}",
+            version,
+            count("violations"),
+            count("incomplete"),
+            count("passes")
+        ),
+    ];
+
+    let render_results = |lines: &mut Vec<String>, results: &[serde_json::Value]| {
+        for r in results {
+            let id = r.get("id").and_then(|v| v.as_str()).unwrap_or("?");
+            let impact = r
+                .get("impact")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let help = r.get("help").and_then(|v| v.as_str()).unwrap_or("");
+            let node_count = r.get("nodeCount").and_then(|v| v.as_u64()).unwrap_or(0);
+            lines.push(format!(
+                "[{}] {}: {} ({} node{})",
+                impact,
+                id,
+                help,
+                node_count,
+                if node_count == 1 { "" } else { "s" }
+            ));
+            if let Some(help_url) = r.get("helpUrl").and_then(|v| v.as_str()) {
+                lines.push(format!("  {}", help_url));
+            }
+            if let Some(nodes) = r.get("nodes").and_then(|v| v.as_array()) {
+                for n in nodes {
+                    if let Some(target) = n.get("target").and_then(format_a11y_target) {
+                        lines.push(format!("  - {}", target));
+                    }
+                }
+                if node_count > nodes.len() as u64 {
+                    lines.push(format!(
+                        "  … and {} more node{}",
+                        node_count - nodes.len() as u64,
+                        if node_count - nodes.len() as u64 == 1 {
+                            ""
+                        } else {
+                            "s"
+                        }
+                    ));
+                }
+            }
+        }
+    };
+
+    if let Some(violations) = data.get("violations").and_then(|v| v.as_array()) {
+        if !violations.is_empty() {
+            lines.push(String::new());
+            render_results(&mut lines, violations);
+        }
+    }
+
+    if let Some(incomplete) = data.get("incomplete").and_then(|v| v.as_array()) {
+        if !incomplete.is_empty() {
+            lines.push(String::new());
+            lines.push("incomplete (needs manual review):".to_string());
+            render_results(&mut lines, incomplete);
+        }
+    }
+
+    lines.join("\n")
+}
+
+fn format_a11y_target(target: &serde_json::Value) -> Option<String> {
+    match target {
+        serde_json::Value::String(value) => Some(value.clone()),
+        serde_json::Value::Array(parts) => {
+            let rendered = parts
+                .iter()
+                .filter_map(|part| match part {
+                    // axe represents a selector that crosses one or more
+                    // shadow roots as a nested array.
+                    serde_json::Value::Array(shadow_parts) => {
+                        let path = shadow_parts
+                            .iter()
+                            .filter_map(format_a11y_target)
+                            .collect::<Vec<_>>()
+                            .join(" >>> ");
+                        (!path.is_empty()).then_some(path)
+                    }
+                    _ => format_a11y_target(part),
+                })
+                .collect::<Vec<_>>()
+                .join(" -> ");
+            (!rendered.is_empty()).then_some(rendered)
+        }
+        _ => None,
+    }
+}
+
 pub fn print_response_with_opts(resp: &Response, action: Option<&str>, opts: &OutputOptions) {
     if opts.json {
         if opts.content_boundaries {
@@ -354,6 +460,10 @@ pub fn print_response_with_opts(resp: &Response, action: Option<&str>, opts: &Ou
         }
         if action == Some("vitals") {
             println!("{}", format_vitals_text(data));
+            return;
+        }
+        if action == Some("a11y") {
+            println!("{}", format_a11y_text(data));
             return;
         }
         if action == Some("storage_get") {
@@ -599,18 +709,27 @@ pub fn print_response_with_opts(resp: &Response, action: Option<&str>, opts: &Ou
         // Tab switch
         if action == Some("tab_switch") {
             if let Some(tab_id) = data.get("tabId").and_then(|v| v.as_str()) {
+                let note = if data.get("revived").and_then(|v| v.as_bool()) == Some(true) {
+                    " (revived, page may have reloaded)"
+                } else if data.get("dialogBlocked").and_then(|v| v.as_bool()) == Some(true) {
+                    " (dialog open, resolve it with `dialog accept`/`dialog dismiss`)"
+                } else {
+                    ""
+                };
                 if let Some(url) = data.get("url").and_then(|v| v.as_str()) {
                     println!(
-                        "{} Switched to tab [{}] ({})",
+                        "{} Switched to tab [{}] ({}){}",
                         color::success_indicator(),
                         tab_id,
-                        url
+                        url,
+                        note
                     );
                 } else {
                     println!(
-                        "{} Switched to tab [{}]",
+                        "{} Switched to tab [{}]{}",
                         color::success_indicator(),
-                        tab_id
+                        tab_id,
+                        note
                     );
                 }
                 return;
@@ -787,7 +906,19 @@ pub fn print_response_with_opts(resp: &Response, action: Option<&str>, opts: &Ou
             let label = match action {
                 Some("tab_close") => {
                     if let Some(closed_id) = data.get("tabId").and_then(|v| v.as_str()) {
-                        println!("{} Tab [{}] closed", color::success_indicator(), closed_id);
+                        let note = if data.get("activeTabRevived").and_then(|v| v.as_bool())
+                            == Some(true)
+                        {
+                            " (active tab revived, page may have reloaded)"
+                        } else {
+                            ""
+                        };
+                        println!(
+                            "{} Tab [{}] closed{}",
+                            color::success_indicator(),
+                            closed_id,
+                            note
+                        );
                         return;
                     }
                     "Tab closed"
@@ -1271,7 +1402,6 @@ Global Options:
   --json               Output as JSON
   --session <name>     Use specific session
   --headers <json>     Set HTTP headers (scoped to this origin)
-  --wait-until <state> Navigation wait: none, domcontentloaded, load, networkidle
   --headed             Show browser window
   --enable react-devtools   Inject the React DevTools hook before any page JS
   --init-script <path>      Register a page init script (repeatable)
@@ -1281,7 +1411,6 @@ Examples:
   agent-browser open example.com
   agent-browser open https://github.com
   agent-browser open localhost:3000
-  agent-browser open --wait-until none https://example.com
   agent-browser open api.example.com --headers '{"Authorization": "Bearer token"}'
     # ^ Headers only sent to api.example.com, not other domains
 
@@ -2067,11 +2196,13 @@ Locators:
   nth <index> <selector>   Nth matching element (0-based)
 
 Actions (default: click):
-  click, fill, type, hover, focus, check, uncheck
+  click, fill, check, hover, text
 
 Options:
   --name <name>        Filter role by accessible name
-  --exact              Require exact text match
+  --exact              Exact, case-sensitive match. For role it applies to
+                       the accessible name, whose default is a case-insensitive
+                       substring. The role value itself always ignores case.
 
 Global Options:
   --json               Output as JSON
@@ -2081,10 +2212,11 @@ Examples:
   agent-browser find role button click --name Submit
   agent-browser find text "Sign In" click
   agent-browser find label "Email" fill "user@example.com"
-  agent-browser find placeholder "Search..." type "query"
+  agent-browser find placeholder "Search..." fill "query"
   agent-browser find testid "login-form" click
   agent-browser find first "li.item" click
   agent-browser find nth 2 ".card" hover
+  agent-browser find role heading text --name Welcome
 "##
         }
 
@@ -2175,6 +2307,7 @@ Subcommands:
     --status <code>          Filter by status (200, 2xx, 400-499)
   request <requestId>        View full request/response detail (including body)
   har <start|stop> [path]    Record and export a HAR file
+    --content <mode>         Response bodies to embed on start: text (default), all, none
 
 Global Options:
   --json               Output as JSON
@@ -2191,6 +2324,7 @@ Examples:
   agent-browser network requests --clear
   agent-browser network request 1234.5
   agent-browser network har start
+  agent-browser network har start --content all
   agent-browser network har stop ./capture.har
 "##
         }
@@ -2733,18 +2867,15 @@ Examples:
             r##"
 agent-browser install - Install browser binaries
 
-Usage: agent-browser install [patchright|chrome] [--with-deps]
+Usage: agent-browser install [--with-deps]
 
 Downloads and installs browser binaries required for automation.
-This fork installs the default Patchright backend when no target is given.
 
 Options:
   -d, --with-deps      Also install system dependencies (Linux only; fails if deps fail)
 
 Examples:
   agent-browser install
-  agent-browser install patchright
-  agent-browser install chrome
   agent-browser install --with-deps
 "##
         }
@@ -2772,18 +2903,23 @@ agent-browser doctor - Diagnose and repair your install
 
 Usage: agent-browser doctor [options]
 
-Runs a battery of checks across environment, browser backend install, daemon
-state, config files, encryption key, providers, network reachability, and a
-live headless browser launch test. For the default Patchright backend, reports
-installed version, release pin, and npm latest when network checks are enabled.
+Runs a battery of checks across environment, Chrome install, daemon state,
+config files, encryption key, providers, network reachability, and a live
+headless browser launch test.
 
 Auto-cleans stale daemon socket/pid/version sidecar files. Destructive
-repairs (installing browser backends, purging old state files, generating a
-missing encryption key) are gated behind --fix.
+repairs (reinstalling Chrome, purging old state files, generating a missing
+encryption key) are gated behind --fix.
 
 Options:
   --offline            Skip network probes
   --quick              Skip the live headless launch test
+  --webgpu             Also run a live WebGPU render probe (renders via a real
+                       WebGPU pass and pixel-checks both an in-page readback
+                       and a decoded screenshot; launches a second Chrome)
+  --headed             Run the WebGPU probe headed to validate the capture
+                       path (auto-Xvfb on displayless Linux)
+  --debug              Verbose diagnostics from the probes' scratch daemons
   --fix                Also run destructive repairs
   --json               JSON output
 
@@ -2794,6 +2930,8 @@ Exit codes:
 Examples:
   agent-browser doctor
   agent-browser doctor --offline --quick
+  agent-browser doctor --webgpu
+  agent-browser doctor --webgpu --headed
   agent-browser doctor --fix
   agent-browser doctor --json
 "##
@@ -3068,6 +3206,36 @@ Examples:
 "##
         }
 
+        "a11y" => {
+            r##"
+agent-browser a11y - Run an axe-core accessibility audit
+
+Usage: agent-browser a11y [url] [options]
+
+Audits the current page, or navigates to the optional URL first. The vendored
+axe-core engine runs private partial audits without a network request across
+the page frame tree, does not trust or replace page-owned window.axe values,
+and merges serialized results without page messaging. Accessibility audits
+require a CDP browser and are not available with Safari or iOS WebDriver
+sessions.
+
+Options:
+  --tags <tag1,tag2>    Run only rules matching these axe tags
+  -s, --selector <css> Scope the audit to a matching subtree
+  --json                Return structured violations and incomplete results
+
+Structured node targets preserve axe selector paths. Nested arrays identify
+shadow DOM boundaries, while multiple path entries can identify frame boundaries.
+
+Examples:
+  agent-browser a11y
+  agent-browser a11y https://example.com
+  agent-browser a11y --tags wcag2a,wcag2aa
+  agent-browser a11y --selector "#main"
+  agent-browser a11y https://example.com --json
+"##
+        }
+
         "profiles" => {
             r##"
 agent-browser profiles - List available Chrome profiles
@@ -3143,8 +3311,9 @@ Tool profiles:
              screenshots, JavaScript eval, close, tab basics, and profile discovery
   network    Network routes, request inspection, HAR, headers, credentials, offline
   state      Cookies, storage, auth, saved state, sessions, profiles, skills
-  debug      Console/errors, tracing, profiling, recording, clipboard, plugins,
-             doctor, dashboard, install, upgrade, chat, diff, batch, confirm/deny
+  debug      Console/errors, tracing, profiling, recording, accessibility audits,
+             clipboard, plugins, doctor, dashboard, install, upgrade, chat, diff,
+             batch, confirm/deny
   tabs       Back/forward/reload, tabs, windows, frames, dialogs
   react      React tree/inspect/renders/suspense, vitals, pushstate
   mobile     Viewport/device/geolocation/media, touch, swipe, mouse, keyboard
@@ -3211,9 +3380,7 @@ Options:
 
 The skills command serves bundled skill content that always matches the
 installed CLI version. Agents should use this to get current instructions
-rather than relying on cached copies. Binary-only installs hydrate bundled
-skills into ~/.agent-browser/skills/<version> when no package directory is
-available.
+rather than relying on cached copies.
 
 Examples:
   agent-browser skills
@@ -3283,6 +3450,7 @@ Example config:
 
 Examples:
   agent-browser plugin add agent-browser-plugin-captcha
+  agent-browser plugin add file:/path/to/plugin-patchright --global
   agent-browser plugin add org/agent-browser-plugin-cloud-browser
   agent-browser plugin add @company/agent-browser-plugin-vault --name vault
   agent-browser plugin list
@@ -3290,6 +3458,7 @@ Examples:
   agent-browser plugin run captcha captcha.solve --payload '{{"siteKey":"...","url":"https://example.com"}}'
   agent-browser auth login my-app --credential-provider vault --item "My App"
   agent-browser --provider cloud-browser open https://example.com
+  agent-browser --provider patchright open https://example.com
 "##
         }
 
@@ -3419,6 +3588,12 @@ Performance:
   vitals [url] [--json]      Core Web Vitals (LCP/CLS/TTFB/FCP/INP) +
                              React hydration summary; --json returns full data
 
+Accessibility:
+  a11y [url] [--tags <t1,t2>] [--selector <css>] [--json]
+                             Run an axe-core accessibility audit on the current
+                             page (or url); reports WCAG violations with
+                             selectors and fix guidance
+
 SPA:
   pushstate <url>            SPA client-side nav. Auto-detects window.next.router.push
                              (triggers RSC fetch on Next.js); falls back to
@@ -3470,8 +3645,7 @@ Dashboard:
   dashboard stop             Stop the dashboard server
 
 Setup:
-  install                    Install Patchright browser binaries
-  install chrome             Install Chrome for Testing for --backend chrome
+  install                    Install browser binaries
   install --with-deps        Also install system dependencies (Linux)
   upgrade                    Upgrade to the latest version
   doctor [--fix]             Diagnose install; auto-clean stale files
@@ -3532,17 +3706,19 @@ Options:
   --screenshot-quality <n>   JPEG quality 0-100; ignored for PNG (or AGENT_BROWSER_SCREENSHOT_QUALITY)
   --screenshot-format <fmt>  Screenshot format: png, jpeg (or AGENT_BROWSER_SCREENSHOT_FORMAT)
   --headed                   Show browser window (not headless) (or AGENT_BROWSER_HEADED env)
+  --webgpu                   Enable WebGPU; uses SwiftShader software Vulkan on Linux, no GPU required (or AGENT_BROWSER_WEBGPU env)
   --cdp <port>               Connect via CDP (Chrome DevTools Protocol)
   --color-scheme <scheme>    Color scheme: dark, light, no-preference (or AGENT_BROWSER_COLOR_SCHEME)
   --download-path <path>     Default download directory (or AGENT_BROWSER_DOWNLOAD_PATH)
   --content-boundaries       Wrap page output in boundary markers (or AGENT_BROWSER_CONTENT_BOUNDARIES)
   --max-output <chars>       Truncate page output to N chars (or AGENT_BROWSER_MAX_OUTPUT)
-  --allowed-domains <list>   Restrict navigation domains (or AGENT_BROWSER_ALLOWED_DOMAINS)
+  --allowed-domains <list>   Restrict network domains; rejects CDP, auto-connect, profiles, restore/state replay, direct-page providers, unsafe startup args, iOS/Safari (or AGENT_BROWSER_ALLOWED_DOMAINS)
   --action-policy <path>     Action policy JSON file (or AGENT_BROWSER_ACTION_POLICY)
   --confirm-actions <list>   Categories requiring confirmation (or AGENT_BROWSER_CONFIRM_ACTIONS)
   --confirm-interactive      Interactive confirmation prompts; auto-denies if stdin is not a TTY (or AGENT_BROWSER_CONFIRM_INTERACTIVE)
   --engine <name>            Browser engine: chrome (default), lightpanda (or AGENT_BROWSER_ENGINE)
-  --backend <name>           Local Chrome backend: patchright (default), chrome (or AGENT_BROWSER_BACKEND)
+  --idle-timeout <time>      Shut down daemon after inactivity: 10s, 3m, 1h, or raw ms
+                             (default: 1h; 0 disables; dashboard input resets the timer)
   --no-auto-dialog           Disable automatic dismissal of alert/beforeunload dialogs (or AGENT_BROWSER_NO_AUTO_DIALOG)
   --model <name>             AI model for chat (or AI_GATEWAY_MODEL env)
   -v, --verbose              Show tool commands and their raw output
@@ -3580,6 +3756,7 @@ Environment:
   AGENT_BROWSER_NAMESPACE        Namespace for daemon sockets and restore state
   AGENT_BROWSER_RESTORE          Auto-save/restore persistence key
   AGENT_BROWSER_RESTORE_SAVE     Restore save policy: auto, always, never
+  AGENT_BROWSER_AUTOSAVE_INTERVAL_MS Min ms between periodic session autosaves (default: 30000, 0 disables)
   AGENT_BROWSER_RESTORE_CHECK_URL URL pattern restored state must match
   AGENT_BROWSER_RESTORE_CHECK_TEXT Page text restored state must contain
   AGENT_BROWSER_RESTORE_CHECK_FN JS expression restored state must satisfy
@@ -3590,8 +3767,9 @@ Environment:
   AGENT_BROWSER_EXTENSIONS       Comma-separated browser extension paths
   AGENT_BROWSER_INIT_SCRIPTS     Comma-separated paths to page init scripts
   AGENT_BROWSER_ENABLE           Comma-separated built-in init script features (e.g. react-devtools)
-  AGENT_BROWSER_BACKEND          Local Chrome backend: patchright or chrome
   AGENT_BROWSER_HEADED           Show browser window (not headless)
+  AGENT_BROWSER_NO_XVFB          Disable automatic Xvfb for headed mode on displayless Linux hosts
+  AGENT_BROWSER_WEBGPU           Enable WebGPU (SwiftShader software Vulkan on Linux)
   AGENT_BROWSER_JSON             JSON output
   AGENT_BROWSER_ANNOTATE         Annotated screenshot with numbered labels and legend
   AGENT_BROWSER_DEBUG            Debug output
@@ -3607,12 +3785,14 @@ Environment:
   AGENT_BROWSER_STATE_EXPIRE_DAYS Auto-delete saved states older than N days (default: 30)
   AGENT_BROWSER_ENCRYPTION_KEY   64-char hex key for AES-256-GCM session encryption
   AGENT_BROWSER_STREAM_PORT      Override WebSocket streaming port (default: OS-assigned)
-  AGENT_BROWSER_IDLE_TIMEOUT_MS  Auto-shutdown daemon after N ms of inactivity (disabled by default)
+  AGENT_BROWSER_IDLE_TIMEOUT_MS  Auto-shutdown daemon after N ms of inactivity (default: 3600000 = 1h; 0 disables)
+                                 Dashboard input resets the timer; headed, Safari/iOS WebDriver, and user-attached browsers are exempt from the default
+                                 Provider-owned cloud browsers remain eligible for default cleanup
   AGENT_BROWSER_IOS_DEVICE       Default iOS device name
   AGENT_BROWSER_IOS_UDID         Default iOS device UDID
   AGENT_BROWSER_CONTENT_BOUNDARIES Wrap page output in boundary markers
   AGENT_BROWSER_MAX_OUTPUT       Max characters for page output
-  AGENT_BROWSER_ALLOWED_DOMAINS  Comma-separated allowed domain patterns
+  AGENT_BROWSER_ALLOWED_DOMAINS  Comma-separated allowed domain patterns; requires a fresh controllable browser context without profile/session startup args, restore/state replay, or direct-page provider plugins
   AGENT_BROWSER_ACTION_POLICY    Path to action policy JSON file
   AGENT_BROWSER_CONFIRM_ACTIONS  Action categories requiring confirmation
   AGENT_BROWSER_CONFIRM_INTERACTIVE Enable interactive confirmation prompts
@@ -3630,10 +3810,10 @@ Environment:
   AI_GATEWAY_MODEL               Default AI model (default: anthropic/claude-sonnet-4.6, or --model flag)
 
 Install:
-  npm install -g agent-browser-priv      # npm package
-  brew install liuwen/agent-browser-priv/agent-browser
-  cargo install --git https://github.com/liuwen/agent-browser-priv
-  agent-browser install                  # Install Patchright browser artifacts
+  npm install -g agent-browser           # npm
+  brew install agent-browser             # Homebrew
+  cargo install agent-browser            # Cargo
+  agent-browser install                  # Download Chrome (first time)
 
 Examples:
   agent-browser open example.com
@@ -3760,8 +3940,8 @@ pub fn print_version() {
 #[cfg(test)]
 mod tests {
     use super::{
-        boundary_origin, format_storage_text, format_vitals_text, format_with_boundaries,
-        OutputOptions,
+        boundary_origin, format_a11y_text, format_storage_text, format_vitals_text,
+        format_with_boundaries, OutputOptions,
     };
     use serde_json::json;
 
@@ -3827,6 +4007,84 @@ mod tests {
         let rendered = format_storage_text(&data).unwrap();
 
         assert_eq!(rendered, "No storage entries");
+    }
+
+    #[test]
+    fn test_format_a11y_text_summary() {
+        let data = json!({
+            "url": "https://example.com",
+            "axeVersion": "4.12.1",
+            "counts": { "violations": 1, "incomplete": 0, "passes": 24, "inapplicable": 40 },
+            "violations": [{
+                "id": "image-alt",
+                "impact": "critical",
+                "help": "Images must have alternative text",
+                "helpUrl": "https://dequeuniversity.com/rules/axe/4.12/image-alt",
+                "nodeCount": 2,
+                "nodes": [
+                    { "target": ["img.hero"], "html": "<img class=\"hero\">" },
+                    { "target": ["#logo > img"], "html": "<img>" }
+                ]
+            }],
+            "incomplete": []
+        });
+
+        let rendered = format_a11y_text(&data);
+
+        assert_eq!(
+            rendered,
+            "url: https://example.com\n\
+axe-core: 4.12.1  violations: 1  incomplete: 0  passes: 24\n\
+\n\
+[critical] image-alt: Images must have alternative text (2 nodes)\n\
+\x20 https://dequeuniversity.com/rules/axe/4.12/image-alt\n\
+\x20 - img.hero\n\
+\x20 - #logo > img"
+        );
+    }
+
+    #[test]
+    fn test_format_a11y_text_no_violations() {
+        let data = json!({
+            "url": "https://example.com",
+            "axeVersion": "4.12.1",
+            "counts": { "violations": 0, "incomplete": 0, "passes": 30, "inapplicable": 44 },
+            "violations": [],
+            "incomplete": []
+        });
+
+        let rendered = format_a11y_text(&data);
+
+        assert_eq!(
+            rendered,
+            "url: https://example.com\n\
+axe-core: 4.12.1  violations: 0  incomplete: 0  passes: 30"
+        );
+    }
+
+    #[test]
+    fn test_format_a11y_text_preserves_shadow_and_frame_boundaries() {
+        let data = json!({
+            "url": "https://example.com",
+            "axeVersion": "4.12.1",
+            "counts": { "violations": 1, "incomplete": 0, "passes": 1 },
+            "violations": [{
+                "id": "image-alt",
+                "impact": "critical",
+                "help": "Images must have alternative text",
+                "nodeCount": 2,
+                "nodes": [
+                    { "target": [["#shadow-host", "img"]] },
+                    { "target": ["iframe", "#nested-image"] }
+                ]
+            }],
+            "incomplete": []
+        });
+
+        let rendered = format_a11y_text(&data);
+
+        assert!(rendered.contains("  - #shadow-host >>> img"));
+        assert!(rendered.contains("  - iframe -> #nested-image"));
     }
 
     #[test]
