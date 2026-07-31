@@ -220,8 +220,8 @@ Plugins can also provide browser providers, launch mutators such as stealth setu
 
 ```bash
 agent-browser --provider cloud-browser open https://example.com
-agent-browser plugin add agent-browser-plugin-patchright --global
-npx agent-browser-plugin-patchright install chrome
+pnpm --filter agent-browser-plugin-patchright build
+agent-browser plugin add "file:$PWD/packages/@agent-browser/plugin-patchright" --global
 agent-browser --provider patchright --headed open https://example.com
 agent-browser plugin run captcha captcha.solve --payload '{"siteKey":"...","url":"https://example.com"}'
 ```

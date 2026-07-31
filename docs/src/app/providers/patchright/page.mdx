@@ -4,12 +4,14 @@ The independently versioned `agent-browser-plugin-patchright` package launches a
 
 ## Setup
 
-Add the plugin globally and install its recommended Google Chrome channel:
+From the repository root, build and register the private plugin from the local workspace:
 
 ```bash
-agent-browser plugin add agent-browser-plugin-patchright --global
-npx agent-browser-plugin-patchright install chrome
+pnpm --filter agent-browser-plugin-patchright build
+agent-browser plugin add "file:$PWD/packages/@agent-browser/plugin-patchright" --global
 ```
+
+The provider uses an existing Google Chrome installation by default. No npm publication or registry login is required.
 
 Launch a session through the provider:
 
@@ -30,7 +32,7 @@ Normal `agent-browser close`, relaunch, connection failure, network-control fail
 Clean up all reachable provider-owned instances manually:
 
 ```bash
-npx agent-browser-plugin-patchright cleanup
+node packages/@agent-browser/plugin-patchright/dist/index.js cleanup
 ```
 
 ## Configuration
@@ -47,7 +49,7 @@ npx agent-browser-plugin-patchright cleanup
 Use Patchright-managed Chromium explicitly:
 
 ```bash
-npx agent-browser-plugin-patchright install chromium
+node packages/@agent-browser/plugin-patchright/dist/index.js install chromium
 AGENT_BROWSER_PATCHRIGHT_CHANNEL=chromium agent-browser --provider patchright open https://example.com
 ```
 

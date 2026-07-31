@@ -838,8 +838,8 @@ agent-browser --provider cloud-browser open https://example.com
 Use the independently versioned Patchright provider when you want agent-browser to drive a Patchright-launched local Chrome session:
 
 ```bash
-agent-browser plugin add agent-browser-plugin-patchright --global
-npx agent-browser-plugin-patchright install chrome
+pnpm --filter agent-browser-plugin-patchright build
+agent-browser plugin add "file:$PWD/packages/@agent-browser/plugin-patchright" --global
 agent-browser --provider patchright --headed open https://example.com
 ```
 

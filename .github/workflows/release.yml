@@ -22,7 +22,6 @@ jobs:
       should_release: ${{ steps.check.outputs.should_release }}
       should_publish_sandbox: ${{ steps.check.outputs.should_publish_sandbox }}
       should_publish_eve: ${{ steps.check.outputs.should_publish_eve }}
-      should_publish_patchright: ${{ steps.check.outputs.should_publish_patchright }}
       needs_github_release: ${{ steps.check.outputs.needs_github_release }}
       version: ${{ steps.check.outputs.version }}
     steps:
@@ -40,20 +39,16 @@ jobs:
           LOCAL_VERSION=$(node -p "require('./package.json').version")
           SANDBOX_VERSION=$(node -p "require('./packages/@agent-browser/sandbox/package.json').version")
           EVE_VERSION=$(node -p "require('./packages/@agent-browser/eve/package.json').version")
-          PATCHRIGHT_VERSION=$(node -p "require('./packages/@agent-browser/plugin-patchright/package.json').version")
           echo "Local version: $LOCAL_VERSION"
           echo "Sandbox package version: $SANDBOX_VERSION"
           echo "Eve package version: $EVE_VERSION"
-          echo "Patchright provider package version: $PATCHRIGHT_VERSION"
 
           NPM_VERSION=$(npm view agent-browser version 2>/dev/null || echo "0.0.0")
           SANDBOX_NPM_VERSION=$(npm view @agent-browser/sandbox version 2>/dev/null || echo "0.0.0")
           EVE_NPM_VERSION=$(npm view @agent-browser/eve version 2>/dev/null || echo "0.0.0")
-          PATCHRIGHT_NPM_VERSION=$(npm view agent-browser-plugin-patchright version 2>/dev/null || true)
           echo "npm version: $NPM_VERSION"
           echo "@agent-browser/sandbox npm version: $SANDBOX_NPM_VERSION"
           echo "@agent-browser/eve npm version: $EVE_NPM_VERSION"
-          echo "agent-browser-plugin-patchright npm version: ${PATCHRIGHT_NPM_VERSION:-not published}"
 
           if [ "$LOCAL_VERSION" != "$NPM_VERSION" ]; then
             echo "Version changed: $NPM_VERSION -> $LOCAL_VERSION"
@@ -87,16 +82,6 @@ jobs:
           else
             echo "Eve package version unchanged on npm, skipping publish"
             echo "should_publish_eve=false" >> "$GITHUB_OUTPUT"
-          fi
-          if [ -z "$PATCHRIGHT_NPM_VERSION" ]; then
-            echo "Patchright provider is not on npm; an initial manual publish is required before automated updates"
-            echo "should_publish_patchright=false" >> "$GITHUB_OUTPUT"
-          elif [ "$PATCHRIGHT_VERSION" != "$PATCHRIGHT_NPM_VERSION" ]; then
-            echo "Patchright provider package version changed: $PATCHRIGHT_NPM_VERSION -> $PATCHRIGHT_VERSION"
-            echo "should_publish_patchright=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Patchright provider package version unchanged on npm, skipping publish"
-            echo "should_publish_patchright=false" >> "$GITHUB_OUTPUT"
           fi
           echo "version=$LOCAL_VERSION" >> "$GITHUB_OUTPUT"
         env:
@@ -404,40 +389,6 @@ jobs:
 
       - name: Publish Eve package to npm
         working-directory: packages/@agent-browser/eve
-        run: pnpm publish --provenance --access public --no-git-checks
-
-  publish-patchright-provider:
-    name: Publish Patchright provider package to npm
-    needs: check-release
-    if: needs.check-release.outputs.should_publish_patchright == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: Release
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Test Patchright provider package
-        run: pnpm --filter agent-browser-plugin-patchright test
-
-      - name: Publish Patchright provider package to npm
-        working-directory: packages/@agent-browser/plugin-patchright
         run: pnpm publish --provenance --access public --no-git-checks
 
   github-release:

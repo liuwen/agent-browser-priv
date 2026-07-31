@@ -351,8 +351,8 @@ If `cleanup` is returned and connection fails, agent-browser later sends it back
 The optional Patchright provider is a local example of the same contract:
 
 ```bash
-agent-browser plugin add agent-browser-plugin-patchright --global
-npx agent-browser-plugin-patchright install chrome
+pnpm --filter agent-browser-plugin-patchright build
+agent-browser plugin add "file:$PWD/packages/@agent-browser/plugin-patchright" --global
 agent-browser --provider patchright --headed open https://example.com
 ```
 

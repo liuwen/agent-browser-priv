@@ -9,12 +9,14 @@ An independently versioned local [Patchright](https://github.com/Kaliiiiiiiiii-V
 
 ## Usage
 
-Add the provider to agent-browser, then install its default Google Chrome channel:
+From the repository root, build and register the private provider from the local workspace:
 
 ```sh
-agent-browser plugin add agent-browser-plugin-patchright --global
-npx agent-browser-plugin-patchright install chrome
+pnpm --filter agent-browser-plugin-patchright build
+agent-browser plugin add "file:$PWD/packages/@agent-browser/plugin-patchright" --global
 ```
+
+The provider uses an existing Google Chrome installation by default. To install its default channel explicitly, run `node packages/@agent-browser/plugin-patchright/dist/index.js install chrome`.
 
 Select Patchright for a session without changing agent-browser's normal Chrome default or its other providers:
 
@@ -27,7 +29,7 @@ agent-browser close
 Patchright-managed Chromium is available as an explicit alternative:
 
 ```sh
-npx agent-browser-plugin-patchright install chromium
+node packages/@agent-browser/plugin-patchright/dist/index.js install chromium
 AGENT_BROWSER_PATCHRIGHT_CHANNEL=chromium agent-browser --provider patchright open https://example.com
 ```
 
@@ -36,7 +38,7 @@ The executable accepts one `agent-browser.plugin.v1` request on stdin, writes ex
 Request shutdown for all reachable provider-owned instances:
 
 ```sh
-npx agent-browser-plugin-patchright cleanup
+node packages/@agent-browser/plugin-patchright/dist/index.js cleanup
 ```
 
 The cleanup command retains ownership records when a supervisor cannot be authenticated or reached. This avoids deleting a profile while its browser may still be active.

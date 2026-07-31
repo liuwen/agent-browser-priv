@@ -3450,7 +3450,7 @@ Example config:
 
 Examples:
   agent-browser plugin add agent-browser-plugin-captcha
-  agent-browser plugin add agent-browser-plugin-patchright --global
+  agent-browser plugin add file:/path/to/plugin-patchright --global
   agent-browser plugin add org/agent-browser-plugin-cloud-browser
   agent-browser plugin add @company/agent-browser-plugin-vault --name vault
   agent-browser plugin list

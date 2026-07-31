@@ -1,6 +1,7 @@
 {
   "name": "agent-browser-plugin-patchright",
   "version": "0.1.0",
+  "private": true,
   "description": "Patchright browser provider plugin for agent-browser",
   "type": "module",
   "files": ["dist", "README.md"],
@@ -26,7 +27,6 @@
   "bugs": {
     "url": "https://github.com/liuwen/agent-browser-priv/issues"
   },
-  "publishConfig": { "access": "public" },
   "dependencies": { "patchright": "1.61.1" },
   "devDependencies": { "@types/node": "24.10.1", "typescript": "5.9.3" }
 }
