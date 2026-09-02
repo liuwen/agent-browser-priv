@@ -1,6 +1,6 @@
 {
   "agent_browser_upstream_tag": "v0.31.1",
-  "patchright_pin": "1.61.1",
+  "patchright_pin": "1.62.2",
   "policy": {
     "patchright_updates": "mechanical-pr",
     "agent_browser_updates": "manual-sync-branch"
