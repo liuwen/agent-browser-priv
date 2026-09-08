@@ -7,7 +7,7 @@ use std::process::{exit, Command, ExitStatus, Stdio};
 const LAST_KNOWN_GOOD_URL: &str =
     "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json";
 
-pub const PATCHRIGHT_VERSION: &str = "1.61.1";
+pub const PATCHRIGHT_VERSION: &str = "1.62.3";
 
 pub fn get_browsers_dir() -> PathBuf {
     dirs::home_dir()
@@ -520,7 +520,7 @@ pub fn run_patchright_install(with_deps: bool) {
   "private": true,
   "type": "module",
   "dependencies": {
-    "patchright": "1.61.1"
+    "patchright": "1.62.3"
   }
 }
 "#;
@@ -539,7 +539,7 @@ pub fn run_patchright_install(with_deps: bool) {
   "packages": {
     "": {
       "dependencies": {
-        "patchright": "1.61.1"
+        "patchright": "1.62.3"
       }
     },
     "node_modules/fsevents": {
@@ -557,33 +557,33 @@ pub fn run_patchright_install(with_deps: bool) {
       }
     },
     "node_modules/patchright": {
-      "version": "1.61.1",
-      "resolved": "https://registry.npmjs.org/patchright/-/patchright-1.61.1.tgz",
-      "integrity": "sha512-kZWNZ2tunsBMTBWtARFVWaNvB739GOybTlIPLT91eyx0YERjtUjESawomwO0hnOh6jt1L3Sru0PK62ylYOfqQw==",
+      "version": "1.62.3",
+      "resolved": "https://registry.npmjs.org/patchright/-/patchright-1.62.3.tgz",
+      "integrity": "sha512-TMpWzcZVWUmOe1251PHWpk0gTP2d7+mvS00h1CLL2IQAUKX7UexKfPqEjdKkH8F2TT5AlyrSbwZKr5lu1dThAQ==",
       "license": "Apache-2.0",
       "dependencies": {
-        "patchright-core": "1.61.1"
+        "patchright-core": "1.62.3"
       },
       "bin": {
         "patchright": "cli.js"
       },
       "engines": {
-        "node": ">=18"
+        "node": ">=20"
       },
       "optionalDependencies": {
         "fsevents": "2.3.2"
       }
     },
     "node_modules/patchright-core": {
-      "version": "1.61.1",
-      "resolved": "https://registry.npmjs.org/patchright-core/-/patchright-core-1.61.1.tgz",
-      "integrity": "sha512-d6Ju67DE6OzqlEX3WPvUX2SLEs6iMY1WERit//mpsrT98VHcztaUo0CBw2Lpxq25VdufVEiWEdcc0HnLwdiq6A==",
+      "version": "1.62.3",
+      "resolved": "https://registry.npmjs.org/patchright-core/-/patchright-core-1.62.3.tgz",
+      "integrity": "sha512-RQf0M2THMf4TL9HNNUxdYbd4Oe3DOVPni6G/bJYsEpD9F1cgqEpWiTJIh+pfuK9JwGRo4Du6lzagJosMUXbh/Q==",
       "license": "Apache-2.0",
       "bin": {
         "patchright-core": "cli.js"
       },
       "engines": {
-        "node": ">=18"
+        "node": ">=20"
       }
     }
   }
