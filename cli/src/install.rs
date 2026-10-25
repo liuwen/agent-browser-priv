@@ -7,7 +7,7 @@ use std::process::{exit, Command, ExitStatus, Stdio};
 const LAST_KNOWN_GOOD_URL: &str =
     "https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json";
 
-pub const PATCHRIGHT_VERSION: &str = "1.61.1";
+pub const PATCHRIGHT_VERSION: &str = "1.64.1";
 
 pub fn get_browsers_dir() -> PathBuf {
     dirs::home_dir()
@@ -520,7 +520,7 @@ pub fn run_patchright_install(with_deps: bool) {
   "private": true,
   "type": "module",
   "dependencies": {
-    "patchright": "1.61.1"
+    "patchright": "1.64.1"
   }
 }
 "#;
@@ -539,51 +539,34 @@ pub fn run_patchright_install(with_deps: bool) {
   "packages": {
     "": {
       "dependencies": {
-        "patchright": "1.61.1"
-      }
-    },
-    "node_modules/fsevents": {
-      "version": "2.3.2",
-      "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.2.tgz",
-      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
-      "hasInstallScript": true,
-      "license": "MIT",
-      "optional": true,
-      "os": [
-        "darwin"
-      ],
-      "engines": {
-        "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
+        "patchright": "1.64.1"
       }
     },
     "node_modules/patchright": {
-      "version": "1.61.1",
-      "resolved": "https://registry.npmjs.org/patchright/-/patchright-1.61.1.tgz",
-      "integrity": "sha512-kZWNZ2tunsBMTBWtARFVWaNvB739GOybTlIPLT91eyx0YERjtUjESawomwO0hnOh6jt1L3Sru0PK62ylYOfqQw==",
+      "version": "1.64.1",
+      "resolved": "https://registry.npmjs.org/patchright/-/patchright-1.64.1.tgz",
+      "integrity": "sha512-uZYBmH3iofTHhUj9DvNQkdFYAY2weGJtoGIEjGJ9K0kNA/ycC4p9sx3QhioEutIzJjsAzBGKbNAaNNvf7Wyw4Q==",
       "license": "Apache-2.0",
       "dependencies": {
-        "patchright-core": "1.61.1"
+        "patchright-core": "1.64.1"
       },
       "bin": {
         "patchright": "cli.js"
       },
       "engines": {
-        "node": ">=18"
-      },
-      "optionalDependencies": {
-        "fsevents": "2.3.2"
+        "node": ">=20"
       }
     },
     "node_modules/patchright-core": {
-      "version": "1.61.1",
-      "resolved": "https://registry.npmjs.org/patchright-core/-/patchright-core-1.61.1.tgz",
-      "integrity": "sha512-d6Ju67DE6OzqlEX3WPvUX2SLEs6iMY1WERit//mpsrT98VHcztaUo0CBw2Lpxq25VdufVEiWEdcc0HnLwdiq6A==",
+      "version": "1.64.1",
+      "resolved": "https://registry.npmjs.org/patchright-core/-/patchright-core-1.64.1.tgz",
+      "integrity": "sha512-nUWuqaaUVd60qepdDPv+i5g257F8jywbzn7aKV8fPRur4dmkFLxYV/xus8f69gKAB7+S/zfdYe0zA3mJkO6+0w==",
       "license": "Apache-2.0",
       "bin": {
         "patchright-core": "cli.js"
       },
       "engines": {
-        "node": ">=18"
+        "node": ">=20"
       }
     }
   }
